@@ -16,7 +16,7 @@ from app.schemas.dashboard import (
 )
 from app.services.budget import get_budget_progress_for_user
 
-RECENT_TRANSACTION_LIMIT = 10
+RECENT_TRANSACTION_LIMIT = 5
 DEFAULT_TREND_MONTH_COUNT = 6
 
 
