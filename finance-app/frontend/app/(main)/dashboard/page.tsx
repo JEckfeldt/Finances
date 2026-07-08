@@ -10,30 +10,24 @@ import {
   RecentTransactionsCard,
 } from "@/components/dashboard/dashboard-widgets";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
-import { DateRangeSelector } from "@/components/dashboard/date-range-selector";
 import { IncomeExpenseChart } from "@/components/dashboard/income-expense-chart";
 import { SpendingTrendsChart } from "@/components/dashboard/spending-trends-chart";
 import { ErrorState } from "@/components/ui/error-state";
 import { getDashboard } from "@/lib/api";
-import {
-  getDateRangeForPreset,
-  getPeriodLabel,
-  type DateRangePreset,
-} from "@/lib/date-range";
 import type { DashboardData } from "@/lib/types";
+
+const PERIOD_LABEL = "All-time balance · This month's summary";
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<DateRangePreset>("default");
 
   const loadDashboard = useCallback(async () => {
     try {
       setError(null);
       setIsLoading(true);
-      const range = getDateRangeForPreset(datePreset);
-      const data = await getDashboard(range);
+      const data = await getDashboard();
       setDashboard(data);
     } catch (err) {
       setError(
@@ -42,16 +36,11 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [datePreset]);
+  }, []);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
-
-  const periodLabel =
-    datePreset === "default"
-      ? "All-time balance · This month's summary"
-      : getPeriodLabel(datePreset);
 
   if (isLoading && !dashboard) {
     return (
@@ -86,25 +75,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Overview of your financial health
-          </p>
-        </div>
-        <DateRangeSelector value={datePreset} onChange={setDatePreset} />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Overview of your financial health
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <BalanceCard balance={dashboard.current_balance} periodLabel={periodLabel} />
+        <BalanceCard balance={dashboard.current_balance} periodLabel={PERIOD_LABEL} />
         <IncomeSummaryCard
           income={dashboard.monthly_summary.income}
-          periodLabel={periodLabel}
+          periodLabel={PERIOD_LABEL}
         />
         <ExpenseSummaryCard
           expenses={dashboard.monthly_summary.expenses}
-          periodLabel={periodLabel}
+          periodLabel={PERIOD_LABEL}
         />
       </div>
 

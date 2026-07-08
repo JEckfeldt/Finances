@@ -5,7 +5,6 @@ import type {
   BudgetProgress,
   BudgetUpdate,
   DashboardData,
-  DashboardParams,
   LoginRequest,
   TokenResponse,
   Transaction,
@@ -180,13 +179,7 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
   return handleResponse<BudgetProgress[]>(response);
 }
 
-export async function getDashboard(
-  params: DashboardParams = {}
-): Promise<DashboardData> {
-  const query = buildQuery({
-    start_date: params.start_date,
-    end_date: params.end_date,
-  });
-  const response = await authFetch(`/dashboard${query}`);
+export async function getDashboard(): Promise<DashboardData> {
+  const response = await authFetch("/dashboard");
   return handleResponse<DashboardData>(response);
 }

@@ -137,8 +137,3 @@ export interface DashboardData {
   monthly_spending_trend: MonthlySpendingTrend[];
   monthly_comparison_trend: MonthlyComparisonTrend[];
 }
-
-export interface DashboardParams {
-  start_date?: string;
-  end_date?: string;
-}

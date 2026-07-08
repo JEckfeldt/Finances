@@ -130,7 +130,7 @@ export function TransactionEditDialog({
               <div className="space-y-2">
                 <Label>Type</Label>
                 <Select
-                  value={selectedType}
+                  value={selectedType ?? transaction.type}
                   onValueChange={(value) =>
                     setValue("type", value as "income" | "expense")
                   }
