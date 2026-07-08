@@ -68,7 +68,7 @@ export default function TransactionsPage() {
       const data = await getTransactionCategories();
       setCategories(data);
     } catch {
-      // Category suggestions are optional; ignore failures.
+      // Categories are used for filter dropdown; ignore fetch failures.
     }
   }, []);
 
@@ -153,7 +153,6 @@ export default function TransactionsPage() {
       </div>
 
       <TransactionForm
-        categorySuggestions={categories}
         onSuccess={async () => {
           await loadCategories();
           await loadTransactions();
@@ -211,7 +210,6 @@ export default function TransactionsPage() {
 
       <TransactionEditDialog
         transaction={editingTransaction}
-        categorySuggestions={categories}
         onClose={() => setEditingTransaction(null)}
         onSuccess={async () => {
           await loadCategories();

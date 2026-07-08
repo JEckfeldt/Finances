@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 8 complete (July 2026).
+> Last updated: July 2026 (post–Milestone 8 polish).
 
 ## Vision
 
@@ -13,7 +13,7 @@ Personal finance management platform. Intended user flow:
 4. Manages transactions and budgets
 5. All data is isolated per authenticated user
 
-**Design direction:** Clean, modern, calm, professional, minimal — off-white backgrounds, soft green accents, neutral text. Similar to modern personal finance apps.
+**Design direction:** Clean, modern, calm, professional, minimal — off-white backgrounds, soft green accents, neutral text, Geist Sans typography. Similar to modern personal finance apps.
 
 ---
 
@@ -28,7 +28,7 @@ Personal finance management platform. Intended user flow:
 | M5 — Budget CRUD | ✅ Complete | Budget model, CRUD API, progress calculation, functional budgets page |
 | M6 — Dashboard analytics | ✅ Complete | Live balance, monthly summary, budget progress, recent transactions, spending chart |
 | M7 — Transaction management | ✅ Complete | Full transaction CRUD, filtering, category normalization, FK constraints |
-| M8 — Dashboard & UX refinement | ✅ Complete | Income vs expense chart, date filters, pagination/sorting, autocomplete, loading/error states, `/auth/me` |
+| M8 — Dashboard & UX refinement | ✅ Complete | Income vs expense chart, date filters, pagination/sorting, loading/error states, `/auth/me` |
 
 ---
 
@@ -50,7 +50,8 @@ Personal finance management platform. Intended user flow:
 - [x] Lucide React icons
 - [x] Recharts (spending trends chart + income vs expense comparison chart)
 - [x] Off-white / soft-green theme in `globals.css`
-- [x] App shell with sidebar navigation (`AppShell`, `SidebarNav`)
+- [x] Global typography — Geist Sans via `next/font`, wired through Tailwind `font-sans`
+- [x] App shell with full-height sidebar (`h-screen` layout, `AppShell`, `SidebarNav`)
 - [x] Route group `(main)` wrapping authenticated pages behind `AuthGuard`
 - [x] Root `/` redirects to `/dashboard`
 - [x] API client (`lib/api.ts`) and shared types (`lib/types.ts`)
@@ -59,7 +60,6 @@ Personal finance management platform. Intended user flow:
 - [x] Sidebar logout button; email from `/auth/me` (synced to localStorage)
 - [x] Loading skeletons and error states with retry (`components/ui/skeleton.tsx`, `error-state.tsx`)
 - [x] Date range presets for dashboard (`lib/date-range.ts`)
-- [x] Category autocomplete from user history + common categories (`lib/categories.ts`)
 
 #### Pages
 
@@ -67,8 +67,8 @@ Personal finance management platform. Intended user flow:
 |-------|--------|---------|
 | `/login` | **Functional** | Email/password form, stores JWT on success, redirects to dashboard |
 | `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
-| `/dashboard` | **Functional** | Protected — balance, income/expenses/net savings, budget progress, recent transactions, spending + income/expense charts, date range filter |
-| `/transactions` | **Functional** | Protected — create/edit/delete, server-side search/filter/sort/pagination, category autocomplete, empty states |
+| `/dashboard` | **Functional** | Protected — balance, income, and expense summary cards; budget progress; recent transactions; spending + income/expense charts; date range filter |
+| `/transactions` | **Functional** | Protected — create/edit/delete, free-text category input, server-side search/filter/sort/pagination, empty states |
 | `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars, loading/error states |
 
 ### Backend
@@ -100,7 +100,7 @@ Personal finance management platform. Intended user flow:
 | POST | `/auth/login` | ✅ Working — returns JWT `{ access_token, token_type: "bearer" }` |
 | GET | `/auth/me` | ✅ Working — returns authenticated user's safe profile (`id`, `email`, `created_at`) |
 | GET | `/transactions` | ✅ Working — paginated list with search, type/category filters, sort; requires auth |
-| GET | `/transactions/categories` | ✅ Working — distinct categories for current user (autocomplete) |
+| GET | `/transactions/categories` | ✅ Working — distinct categories for current user (transaction filter dropdown) |
 | POST | `/transactions` | ✅ Working — requires auth, normalizes category on save |
 | PUT | `/transactions/{id}` | ✅ Working — requires auth, updates user's own transaction |
 | DELETE | `/transactions/{id}` | ✅ Working — requires auth, deletes user's own transaction |
@@ -146,11 +146,25 @@ Personal finance management platform. Intended user flow:
 
 ---
 
+## Recent Polish (post-M8)
+
+Changes applied after Milestone 8 without starting Milestone 9:
+
+| Change | Details |
+|--------|---------|
+| Net Savings card removed | Dashboard summary row now shows Balance, Income, and Expenses only (3-column grid) |
+| Full-height sidebar | App shell uses `h-screen` so sidebar stretches to viewport bottom |
+| Global typography | Geist Sans wired correctly via `layout.tsx` + `globals.css` (replaces broken circular `--font-sans` ref) |
+| Category input simplified | Transaction create/edit use plain text inputs; suggestion dropdown removed. Category filter dropdown on list view retained |
+
+---
+
 ## What Is NOT Implemented
 
 ### Transactions (remaining polish)
 
 - [ ] Transaction detail view (single-transaction page)
+- [ ] Category autocomplete / suggestion UI on create/edit forms (removed by design; free-text input only)
 
 ### General / Infrastructure
 
@@ -181,6 +195,8 @@ finance-app/
 │
 ├── frontend/
 │   ├── app/
+│   │   ├── layout.tsx         ← Geist font loading, global typography
+│   │   ├── globals.css        ← theme tokens, font-sans wiring
 │   │   ├── (main)/
 │   │   │   ├── layout.tsx     ← AuthGuard + AppShell wrapper
 │   │   │   ├── dashboard/page.tsx
@@ -192,13 +208,12 @@ finance-app/
 │   │   ├── auth/auth-guard.tsx
 │   │   ├── budgets/           ← form, card, edit dialog
 │   │   ├── dashboard/         ← widgets, charts, date range, skeleton
-│   │   ├── layout/            ← sidebar + shell
-│   │   ├── transactions/      ← form, list, filters, pagination, autocomplete, edit dialog
+│   │   ├── layout/            ← full-height sidebar + shell
+│   │   ├── transactions/      ← form, list, filters, pagination, edit dialog
 │   │   └── ui/                ← skeleton, error-state, shadcn primitives
 │   └── lib/
 │       ├── api.ts             ← backend HTTP client
 │       ├── auth.ts            ← JWT storage and helpers
-│       ├── categories.ts      ← common + merged user categories
 │       ├── date-range.ts      ← dashboard date presets
 │       ├── format.ts          ← currency/date formatting
 │       └── types.ts
@@ -248,13 +263,14 @@ npm run dev
 
 1. Register a new account at `/register`
 2. Sign in at `/login`
-3. Create income and expense transactions on `/transactions`
-4. Edit and delete transactions; verify category autocomplete suggestions
+3. Create income and expense transactions on `/transactions` (free-text category)
+4. Edit and delete transactions
 5. Use search, type/category filters, sorting, and pagination
 6. Create budgets on `/budgets`; verify progress updates
-7. Open `/dashboard` — verify balance, summary cards, charts
+7. Open `/dashboard` — verify balance, income/expense summary cards, charts
 8. Change date range presets; confirm metrics and charts update
-9. Sign in as a second user — confirm no access to the first user's data
+9. Confirm sidebar spans full viewport height on short pages
+10. Sign in as a second user — confirm no access to the first user's data
 
 ---
 
@@ -264,4 +280,4 @@ npm run dev
 2. **CI/CD** — automated tests and deploy pipeline
 3. **Auth hardening** — token refresh, httpOnly cookies, Next.js middleware
 4. **Database migrations** — Alembic for schema versioning
-5. **Category model** — dedicated table with managed categories (replace autocomplete-only approach)
+5. **Category model** — dedicated table with managed categories (optional; forms currently use free-text input)
