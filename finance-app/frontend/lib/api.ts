@@ -1,5 +1,9 @@
 import { getToken } from "@/lib/auth";
 import type {
+  Budget,
+  BudgetCreate,
+  BudgetProgress,
+  BudgetUpdate,
   LoginRequest,
   TokenResponse,
   Transaction,
@@ -79,4 +83,42 @@ export async function createTransaction(
     body: JSON.stringify(data),
   });
   return handleResponse<Transaction>(response);
+}
+
+export async function getBudgets(): Promise<Budget[]> {
+  const response = await authFetch("/budgets");
+  return handleResponse<Budget[]>(response);
+}
+
+export async function createBudget(data: BudgetCreate): Promise<Budget> {
+  const response = await authFetch("/budgets", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Budget>(response);
+}
+
+export async function updateBudget(
+  id: number,
+  data: BudgetUpdate
+): Promise<Budget> {
+  const response = await authFetch(`/budgets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Budget>(response);
+}
+
+export async function deleteBudget(id: number): Promise<void> {
+  const response = await authFetch(`/budgets/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    await handleResponse(response);
+  }
+}
+
+export async function getBudgetProgress(): Promise<BudgetProgress[]> {
+  const response = await authFetch("/budgets/progress");
+  return handleResponse<BudgetProgress[]>(response);
 }

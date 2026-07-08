@@ -1,38 +1,82 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+"use client";
 
-function BudgetPlaceholder({ name }: { name: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{name}</CardTitle>
-        <CardDescription>Budget tracking coming soon</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Spent</span>
-            <span className="text-muted-foreground/50">—</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Limit</span>
-            <span className="text-muted-foreground/50">—</span>
-          </div>
-          <div className="h-2 rounded-full bg-muted">
-            <div className="h-2 w-0 rounded-full bg-primary/40" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+import { useCallback, useEffect, useState } from "react";
+
+import { BudgetCard } from "@/components/budgets/budget-card";
+import { BudgetEditDialog } from "@/components/budgets/budget-edit-dialog";
+import { BudgetForm } from "@/components/budgets/budget-form";
+import {
+  deleteBudget,
+  getBudgetProgress,
+  getBudgets,
+} from "@/lib/api";
+import type { Budget, BudgetWithProgress } from "@/lib/types";
+
+function mergeBudgetsWithProgress(
+  budgets: Budget[],
+  progress: Awaited<ReturnType<typeof getBudgetProgress>>
+): BudgetWithProgress[] {
+  const progressByCategory = new Map(
+    progress.map((item) => [item.category, item])
   );
+
+  return budgets.map((budget) => {
+    const stats = progressByCategory.get(budget.category);
+    return {
+      ...budget,
+      spent: stats?.spent ?? "0.00",
+      remaining: stats?.remaining ?? budget.limit_amount,
+      percentage: stats?.percentage ?? 0,
+    };
+  });
 }
 
 export default function BudgetsPage() {
+  const [budgets, setBudgets] = useState<BudgetWithProgress[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const loadBudgets = useCallback(async () => {
+    try {
+      setError(null);
+      const [budgetList, progress] = await Promise.all([
+        getBudgets(),
+        getBudgetProgress(),
+      ]);
+      setBudgets(mergeBudgetsWithProgress(budgetList, progress));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load budgets");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBudgets();
+  }, [loadBudgets]);
+
+  async function handleDelete(budget: BudgetWithProgress) {
+    const confirmed = window.confirm(
+      `Delete the ${budget.category} budget? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(budget.id);
+      await deleteBudget(budget.id);
+      setIsLoading(true);
+      await loadBudgets();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete budget");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -42,14 +86,47 @@ export default function BudgetsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <BudgetPlaceholder name="Groceries" />
-        <BudgetPlaceholder name="Transportation" />
-        <BudgetPlaceholder name="Entertainment" />
-        <BudgetPlaceholder name="Utilities" />
-        <BudgetPlaceholder name="Healthcare" />
-        <BudgetPlaceholder name="Savings" />
-      </div>
+      <BudgetForm
+        onSuccess={() => {
+          setIsLoading(true);
+          loadBudgets();
+        }}
+      />
+
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+
+      {isLoading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Loading budgets...
+        </p>
+      ) : budgets.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No budgets yet. Add your first budget above.
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {budgets.map((budget) => (
+            <BudgetCard
+              key={budget.id}
+              budget={budget}
+              onEdit={setEditingBudget}
+              onDelete={handleDelete}
+              isDeleting={deletingId === budget.id}
+            />
+          ))}
+        </div>
+      )}
+
+      <BudgetEditDialog
+        budget={editingBudget}
+        onClose={() => setEditingBudget(null)}
+        onSuccess={() => {
+          setIsLoading(true);
+          loadBudgets();
+        }}
+      />
     </div>
   );
 }

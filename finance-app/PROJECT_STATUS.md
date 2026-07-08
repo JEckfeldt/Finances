@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 3 complete (July 2026).
+> Last updated: Milestone 5 complete (July 2026).
 
 ## Vision
 
@@ -25,7 +25,7 @@ Personal finance management platform. Intended user flow:
 | M2 — Pages, transactions, DB | ✅ Complete | UI shell, themed pages, transaction CRUD (create/view), DB connected |
 | M3 — Authentication (JWT) | ✅ Complete | Register/login, JWT auth, protected routes, password hashing |
 | M4 — User isolation | ✅ Complete | Transactions scoped to authenticated user via JWT |
-| M5 — Budget CRUD | ❌ Not started | Full budget management |
+| M5 — Budget CRUD | ✅ Complete | Budget model, CRUD API, progress calculation, functional budgets page |
 | M6 — Dashboard analytics | ❌ Not started | Live calculations, charts, trends |
 
 ---
@@ -44,7 +44,7 @@ Personal finance management platform. Intended user flow:
 
 - [x] Next.js 15 (App Router, TypeScript, Tailwind CSS v4)
 - [x] shadcn/ui (base-nova style) — Button, Card, Input, Label, Select, Table, Badge, Separator
-- [x] React Hook Form + Zod (used on transactions form)
+- [x] React Hook Form + Zod (used on transactions and budgets forms)
 - [x] Lucide React icons
 - [x] Recharts installed (not yet used in UI)
 - [x] Off-white / soft-green theme in `globals.css`
@@ -64,7 +64,7 @@ Personal finance management platform. Intended user flow:
 | `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
 | `/dashboard` | Placeholder UI | Protected — widget layout for balance, income/expense summaries, budget progress, recent transactions, trends chart area — all show `—` or empty states |
 | `/transactions` | **Functional** | Protected — create form + transaction table, authenticated API calls, refreshes after add |
-| `/budgets` | Placeholder UI | Protected — static skeleton cards (Groceries, Transportation, etc.) with no data or actions |
+| `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars from live transaction data |
 
 ### Backend
 
@@ -83,6 +83,7 @@ Personal finance management platform. Intended user flow:
 |-------|--------|--------|
 | `Transaction` | ✅ Active | `id`, `user_id`, `description`, `amount`, `type` (income/expense), `category`, `created_at` |
 | `User` | ✅ Active | `id`, `email` (unique, indexed), `hashed_password`, `created_at` |
+| `Budget` | ✅ Active | `id`, `user_id`, `category`, `limit_amount`, `created_at`, `updated_at` |
 
 #### API Endpoints
 
@@ -93,38 +94,32 @@ Personal finance management platform. Intended user flow:
 | POST | `/auth/login` | ✅ Working — returns JWT `{ access_token, token_type: "bearer" }` |
 | GET | `/transactions` | ✅ Working — requires auth, returns current user's transactions only |
 | POST | `/transactions` | ✅ Working — requires auth, assigns authenticated user's ID |
+| GET | `/budgets` | ✅ Working — requires auth, returns current user's budgets |
+| POST | `/budgets` | ✅ Working — requires auth, creates budget for current user |
+| PUT | `/budgets/{id}` | ✅ Working — requires auth, updates user's own budget |
+| DELETE | `/budgets/{id}` | ✅ Working — requires auth, deletes user's own budget |
+| GET | `/budgets/progress` | ✅ Working — requires auth, calculates spent/remaining/percentage from expense transactions matched by category |
 
 #### Authentication
 
 - [x] Password hashing via passlib + bcrypt (`bcrypt==4.0.1` pinned for compatibility)
 - [x] JWT creation and validation (`python-jose`)
 - [x] `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`
-- [x] Transaction routes protected and scoped to authenticated user
+- [x] Transaction and budget routes protected and scoped to authenticated user
 - [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`
-- [ ] `/auth/me` endpoint (email currently stored client-side after login)
-- [ ] Token refresh flow
-- [ ] httpOnly cookie-based auth (currently localStorage JWT)
 
 ### Database
 
 - [x] PostgreSQL connected from backend
 - [x] `transactions` table with correct schema and `user_id` index
 - [x] `users` table with auth fields (`email`, `hashed_password`, `created_at`)
+- [x] `budgets` table with `user_id` index, `category`, `limit_amount`, timestamps
 - [x] Startup migration adds missing auth columns to legacy `users` tables
-- [ ] Alembic migrations (dependency installed, not configured)
-- [ ] Foreign key constraint from `transactions.user_id` → `users.id`
-- [ ] Seed data scripts
+- [ ] Foreign key constraints (`transactions.user_id`, `budgets.user_id` → `users.id`)
 
 ---
 
 ## What Is NOT Implemented
-
-### Authentication (remaining polish)
-
-- [ ] Next.js middleware for server-side route protection (currently client-side `AuthGuard` only)
-- [ ] `/auth/me` endpoint for fetching current user profile
-- [ ] Token refresh / rotation
-- [ ] httpOnly cookie storage (more secure than localStorage)
 
 ### Transactions (remaining)
 
@@ -133,19 +128,11 @@ Personal finance management platform. Intended user flow:
 - [ ] Transaction filtering, search, pagination
 - [ ] Transaction detail view
 
-### Budgets
-
-- [ ] Budget model and database table
-- [ ] Budget API endpoints (CRUD)
-- [ ] Budget create/edit/delete UI
-- [ ] Budget progress calculations
-- [ ] Linking transactions to budgets
-
 ### Dashboard
 
 - [ ] Real balance calculation
 - [ ] Income / expense summaries from transaction data
-- [ ] Budget progress from live data
+- [ ] Budget progress widget (pulls from `/budgets/progress`)
 - [ ] Recent transactions widget (pulls from API)
 - [ ] Financial trends chart (Recharts)
 - [ ] Date range filtering
@@ -153,10 +140,17 @@ Personal finance management platform. Intended user flow:
 ### General / Infrastructure
 
 - [ ] Frontend Docker service in Compose
-- [ ] Alembic migration setup (replace `create_all` + ad-hoc column migration)
-- [ ] API error handling standards
 - [ ] Unit / integration tests
 - [ ] CI/CD pipeline
+
+### Future polish (deferred)
+
+- [ ] Next.js middleware for server-side route protection
+- [ ] `/auth/me` endpoint
+- [ ] Token refresh / rotation
+- [ ] httpOnly cookie storage
+- [ ] Alembic migrations
+- [ ] Category normalization
 - [ ] Production deployment config
 
 ---
@@ -181,11 +175,12 @@ finance-app/
 │   │   └── register/page.tsx
 │   ├── components/
 │   │   ├── auth/auth-guard.tsx
+│   │   ├── budgets/           ← form, card, edit dialog (functional)
 │   │   ├── layout/            ← sidebar + shell
 │   │   ├── dashboard/         ← placeholder widgets
 │   │   └── transactions/      ← form + list (functional)
 │   └── lib/
-│       ├── api.ts             ← backend HTTP client (auth + transactions)
+│       ├── api.ts             ← backend HTTP client (auth, transactions, budgets)
 │       ├── auth.ts            ← JWT storage and helpers
 │       └── types.ts
 │
@@ -197,18 +192,21 @@ finance-app/
         │   ├── config.py      ← settings incl. JWT config
         │   └── auth.py        ← hashing, JWT, get_current_user
         ├── api/
-        │   ├── router.py      ← registers auth + transactions routers
+        │   ├── router.py      ← registers auth, budgets, transactions routers
         │   ├── deps.py
         │   └── routes/
-        │       ├── auth.py    ← register, login
+        │       ├── auth.py
+        │       ├── budgets.py   ← CRUD + progress
         │       └── transactions.py
         ├── db/
         │   └── migrate.py     ← legacy users table column migration
         ├── models/
         │   ├── user.py
+        │   ├── budget.py
         │   └── transaction.py
         └── schemas/
             ├── user.py
+            ├── budget.py
             └── transaction.py
 ```
 
@@ -230,45 +228,37 @@ npm run dev
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
-### Testing authentication
+### Testing budgets
 
-1. Visit http://localhost:3000 — unauthenticated users are redirected to `/login`
-2. Register a user at `/register` (password must be at least 8 characters)
-3. Sign in at `/login` — JWT is stored and used for all API calls
-4. Create transactions on `/transactions` — only visible to the signed-in user
-5. Log out from the sidebar — token is cleared, redirected to `/login`
+1. Sign in at `/login`
+2. Go to `/budgets` and add a budget (e.g. Groceries, $500)
+3. Add expense transactions on `/transactions` with matching category (e.g. Groceries)
+4. Return to `/budgets` — spent, remaining, and progress bar update from transaction data
+5. Edit or delete budgets using the card actions
 
 **API quick test:**
 
 ```bash
-# Register
-curl -X POST http://localhost:8000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"alice@test.com","password":"password123"}'
-
 # Login (save the access_token)
 curl -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"alice@test.com","password":"password123"}'
 
-# Authenticated request
-curl http://localhost:8000/transactions \
+# Create budget
+curl -X POST http://localhost:8000/budgets \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"Groceries","limit_amount":500.00}'
+
+# Get progress
+curl http://localhost:8000/budgets/progress \
   -H "Authorization: Bearer <access_token>"
-```
-
-**Clean database reset** (if upgrading from pre-auth schema):
-
-```bash
-docker compose down -v
-docker compose up -d --build
 ```
 
 ---
 
-## Suggested Next Steps (Milestone 5+)
+## Suggested Next Steps (Milestone 6+)
 
-1. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
-2. **Budget model + CRUD** — backend model, API, functional budgets page
-3. **Dashboard wiring** — aggregate transaction data into dashboard widgets
-4. **Alembic migrations** — replace `create_all` with versioned migrations
-5. **Auth polish** — `/auth/me` endpoint, httpOnly cookies, Next.js middleware
+1. **Dashboard wiring** — aggregate transaction and budget data into dashboard widgets
+2. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
+3. **Financial trends chart** — wire Recharts to transaction history

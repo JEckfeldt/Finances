@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.migrate import migrate_users_table
 from app.db.session import engine
-from app.models import Transaction, User  # noqa: F401 — register models with metadata
+from app.models import Budget, Transaction, User  # noqa: F401 — register models with metadata
 
 
 @asynccontextmanager

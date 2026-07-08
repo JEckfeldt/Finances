@@ -37,3 +37,36 @@ export interface TokenResponse {
   access_token: string;
   token_type: string;
 }
+
+export interface Budget {
+  id: number;
+  user_id: number;
+  category: string;
+  limit_amount: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BudgetCreate {
+  category: string;
+  limit_amount: number;
+}
+
+export interface BudgetUpdate {
+  category: string;
+  limit_amount: number;
+}
+
+export interface BudgetProgress {
+  category: string;
+  limit_amount: string;
+  spent: string;
+  remaining: string;
+  percentage: number;
+}
+
+export interface BudgetWithProgress extends Budget {
+  spent: string;
+  remaining: string;
+  percentage: number;
+}
