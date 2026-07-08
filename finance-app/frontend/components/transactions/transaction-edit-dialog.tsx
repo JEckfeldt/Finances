@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { updateTransaction } from "@/lib/api";
 import type { Transaction, TransactionUpdate } from "@/lib/types";
+import { CategoryAutocomplete } from "@/components/transactions/category-autocomplete";
 
 const transactionEditSchema = z.object({
   description: z.string().min(1, "Description is required").max(255),
@@ -36,12 +37,14 @@ type TransactionEditFormValues = z.infer<typeof transactionEditSchema>;
 
 interface TransactionEditDialogProps {
   transaction: Transaction | null;
+  categorySuggestions?: string[];
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 export function TransactionEditDialog({
   transaction,
+  categorySuggestions = [],
   onClose,
   onSuccess,
 }: TransactionEditDialogProps) {
@@ -57,6 +60,7 @@ export function TransactionEditDialog({
   });
 
   const selectedType = watch("type");
+  const categoryValue = watch("category");
 
   useEffect(() => {
     if (transaction) {
@@ -84,7 +88,7 @@ export function TransactionEditDialog({
     };
 
     await updateTransaction(transactionId, payload);
-    onSuccess();
+    await onSuccess();
     onClose();
   }
 
@@ -144,7 +148,14 @@ export function TransactionEditDialog({
 
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="edit-category">Category</Label>
-                <Input id="edit-category" {...register("category")} />
+                <CategoryAutocomplete
+                  id="edit-category"
+                  value={categoryValue ?? ""}
+                  onChange={(value) =>
+                    setValue("category", value, { shouldValidate: true })
+                  }
+                  suggestions={categorySuggestions}
+                />
                 {errors.category && (
                   <p className="text-sm text-destructive">
                     {errors.category.message}

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { createTransaction } from "@/lib/api";
 import type { TransactionCreate } from "@/lib/types";
+import { CategoryAutocomplete } from "@/components/transactions/category-autocomplete";
 
 const transactionSchema = z.object({
   description: z.string().min(1, "Description is required").max(255),
@@ -34,10 +35,14 @@ const transactionSchema = z.object({
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 interface TransactionFormProps {
-  onSuccess: () => void;
+  categorySuggestions?: string[];
+  onSuccess: () => void | Promise<void>;
 }
 
-export function TransactionForm({ onSuccess }: TransactionFormProps) {
+export function TransactionForm({
+  categorySuggestions = [],
+  onSuccess,
+}: TransactionFormProps) {
   const {
     register,
     handleSubmit,
@@ -56,6 +61,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   });
 
   const selectedType = watch("type");
+  const categoryValue = watch("category");
 
   async function onSubmit(data: TransactionFormValues) {
     const payload: TransactionCreate = {
@@ -67,7 +73,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
     await createTransaction(payload);
     reset();
-    onSuccess();
+    await onSuccess();
   }
 
   return (
@@ -135,10 +141,13 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Input
+              <CategoryAutocomplete
                 id="category"
-                placeholder="e.g. Food, Salary, Rent"
-                {...register("category")}
+                value={categoryValue ?? ""}
+                onChange={(value) =>
+                  setValue("category", value, { shouldValidate: true })
+                }
+                suggestions={categorySuggestions}
               />
               {errors.category && (
                 <p className="text-sm text-destructive">

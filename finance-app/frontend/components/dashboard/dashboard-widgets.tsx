@@ -15,9 +15,10 @@ import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 
 interface BalanceCardProps {
   balance: string;
+  periodLabel?: string;
 }
 
-export function BalanceCard({ balance }: BalanceCardProps) {
+export function BalanceCard({ balance, periodLabel }: BalanceCardProps) {
   const value = parseFloat(balance);
   const isNegative = value < 0;
 
@@ -38,7 +39,7 @@ export function BalanceCard({ balance }: BalanceCardProps) {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Total income minus total expenses
+          {periodLabel ?? "Total income minus total expenses"}
         </p>
       </CardContent>
     </Card>
@@ -47,9 +48,10 @@ export function BalanceCard({ balance }: BalanceCardProps) {
 
 interface IncomeSummaryCardProps {
   income: string;
+  periodLabel?: string;
 }
 
-export function IncomeSummaryCard({ income }: IncomeSummaryCardProps) {
+export function IncomeSummaryCard({ income, periodLabel }: IncomeSummaryCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -62,7 +64,9 @@ export function IncomeSummaryCard({ income }: IncomeSummaryCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">This month&apos;s income</p>
+        <p className="text-sm text-muted-foreground">
+          {periodLabel ?? "This month's income"}
+        </p>
       </CardContent>
     </Card>
   );
@@ -70,9 +74,13 @@ export function IncomeSummaryCard({ income }: IncomeSummaryCardProps) {
 
 interface ExpenseSummaryCardProps {
   expenses: string;
+  periodLabel?: string;
 }
 
-export function ExpenseSummaryCard({ expenses }: ExpenseSummaryCardProps) {
+export function ExpenseSummaryCard({
+  expenses,
+  periodLabel,
+}: ExpenseSummaryCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -85,7 +93,9 @@ export function ExpenseSummaryCard({ expenses }: ExpenseSummaryCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">This month&apos;s expenses</p>
+        <p className="text-sm text-muted-foreground">
+          {periodLabel ?? "This month's expenses"}
+        </p>
       </CardContent>
     </Card>
   );

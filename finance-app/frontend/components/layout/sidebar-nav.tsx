@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { clearAuth, getEmail } from "@/lib/auth";
+import { clearAuth, getEmail, setAuth, getToken } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/api";
 import {
   ArrowLeftRight,
   LayoutDashboard,
@@ -26,7 +27,20 @@ export function SidebarNav() {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    setEmail(getEmail());
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
+        setEmail(user.email);
+        const token = getToken();
+        if (token) {
+          setAuth(token, user.email);
+        }
+      } catch {
+        setEmail(getEmail());
+      }
+    }
+
+    loadUser();
   }, []);
 
   function handleLogout() {

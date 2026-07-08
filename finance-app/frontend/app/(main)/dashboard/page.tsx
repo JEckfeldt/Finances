@@ -9,19 +9,31 @@ import {
   IncomeSummaryCard,
   RecentTransactionsCard,
 } from "@/components/dashboard/dashboard-widgets";
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { DateRangeSelector } from "@/components/dashboard/date-range-selector";
+import { IncomeExpenseChart } from "@/components/dashboard/income-expense-chart";
 import { SpendingTrendsChart } from "@/components/dashboard/spending-trends-chart";
+import { ErrorState } from "@/components/ui/error-state";
 import { getDashboard } from "@/lib/api";
+import {
+  getDateRangeForPreset,
+  getPeriodLabel,
+  type DateRangePreset,
+} from "@/lib/date-range";
 import type { DashboardData } from "@/lib/types";
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [datePreset, setDatePreset] = useState<DateRangePreset>("default");
 
   const loadDashboard = useCallback(async () => {
     try {
       setError(null);
-      const data = await getDashboard();
+      setIsLoading(true);
+      const range = getDateRangeForPreset(datePreset);
+      const data = await getDashboard(range);
       setDashboard(data);
     } catch (err) {
       setError(
@@ -30,13 +42,18 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [datePreset]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
-  if (isLoading) {
+  const periodLabel =
+    datePreset === "default"
+      ? "All-time balance · This month's summary"
+      : getPeriodLabel(datePreset);
+
+  if (isLoading && !dashboard) {
     return (
       <div className="space-y-8">
         <div>
@@ -45,9 +62,7 @@ export default function DashboardPage() {
             Overview of your financial health
           </p>
         </div>
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Loading dashboard...
-        </p>
+        <DashboardSkeleton />
       </div>
     );
   }
@@ -61,26 +76,36 @@ export default function DashboardPage() {
             Overview of your financial health
           </p>
         </div>
-        <p className="py-8 text-center text-sm text-destructive">
-          {error ?? "Failed to load dashboard"}
-        </p>
+        <ErrorState
+          message={error ?? "Failed to load dashboard"}
+          onRetry={loadDashboard}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Overview of your financial health
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Overview of your financial health
+          </p>
+        </div>
+        <DateRangeSelector value={datePreset} onChange={setDatePreset} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <BalanceCard balance={dashboard.current_balance} />
-        <IncomeSummaryCard income={dashboard.monthly_summary.income} />
-        <ExpenseSummaryCard expenses={dashboard.monthly_summary.expenses} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <BalanceCard balance={dashboard.current_balance} periodLabel={periodLabel} />
+        <IncomeSummaryCard
+          income={dashboard.monthly_summary.income}
+          periodLabel={periodLabel}
+        />
+        <ExpenseSummaryCard
+          expenses={dashboard.monthly_summary.expenses}
+          periodLabel={periodLabel}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -88,7 +113,10 @@ export default function DashboardPage() {
         <RecentTransactionsCard transactions={dashboard.recent_transactions} />
       </div>
 
-      <SpendingTrendsChart data={dashboard.monthly_spending_trend} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <IncomeExpenseChart data={dashboard.monthly_comparison_trend} />
+        <SpendingTrendsChart data={dashboard.monthly_spending_trend} />
+      </div>
     </div>
   );
 }

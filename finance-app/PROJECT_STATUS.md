@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 7 complete (July 2026).
+> Last updated: Milestone 8 complete (July 2026).
 
 ## Vision
 
@@ -28,6 +28,7 @@ Personal finance management platform. Intended user flow:
 | M5 — Budget CRUD | ✅ Complete | Budget model, CRUD API, progress calculation, functional budgets page |
 | M6 — Dashboard analytics | ✅ Complete | Live balance, monthly summary, budget progress, recent transactions, spending chart |
 | M7 — Transaction management | ✅ Complete | Full transaction CRUD, filtering, category normalization, FK constraints |
+| M8 — Dashboard & UX refinement | ✅ Complete | Income vs expense chart, date filters, pagination/sorting, autocomplete, loading/error states, `/auth/me` |
 
 ---
 
@@ -44,10 +45,10 @@ Personal finance management platform. Intended user flow:
 ### Frontend
 
 - [x] Next.js 15 (App Router, TypeScript, Tailwind CSS v4)
-- [x] shadcn/ui (base-nova style) — Button, Card, Input, Label, Select, Table, Badge, Separator
+- [x] shadcn/ui (base-nova style) — Button, Card, Input, Label, Select, Table, Badge, Separator, Skeleton
 - [x] React Hook Form + Zod (used on transactions and budgets forms)
 - [x] Lucide React icons
-- [x] Recharts (used on dashboard spending trends chart)
+- [x] Recharts (spending trends chart + income vs expense comparison chart)
 - [x] Off-white / soft-green theme in `globals.css`
 - [x] App shell with sidebar navigation (`AppShell`, `SidebarNav`)
 - [x] Route group `(main)` wrapping authenticated pages behind `AuthGuard`
@@ -55,7 +56,10 @@ Personal finance management platform. Intended user flow:
 - [x] API client (`lib/api.ts`) and shared types (`lib/types.ts`)
 - [x] Auth state management (`lib/auth.ts`) — JWT + email in `localStorage`
 - [x] Login and registration pages (`/login`, `/register`)
-- [x] Sidebar logout button and signed-in email display
+- [x] Sidebar logout button; email from `/auth/me` (synced to localStorage)
+- [x] Loading skeletons and error states with retry (`components/ui/skeleton.tsx`, `error-state.tsx`)
+- [x] Date range presets for dashboard (`lib/date-range.ts`)
+- [x] Category autocomplete from user history + common categories (`lib/categories.ts`)
 
 #### Pages
 
@@ -63,9 +67,9 @@ Personal finance management platform. Intended user flow:
 |-------|--------|---------|
 | `/login` | **Functional** | Email/password form, stores JWT on success, redirects to dashboard |
 | `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
-| `/dashboard` | **Functional** | Protected — live balance, monthly income/expenses, budget progress, recent transactions, 6-month spending chart |
-| `/transactions` | **Functional** | Protected — create/edit/delete transactions, search and filter (type, category), responsive table |
-| `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars from live transaction data |
+| `/dashboard` | **Functional** | Protected — balance, income/expenses/net savings, budget progress, recent transactions, spending + income/expense charts, date range filter |
+| `/transactions` | **Functional** | Protected — create/edit/delete, server-side search/filter/sort/pagination, category autocomplete, empty states |
+| `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars, loading/error states |
 
 ### Backend
 
@@ -94,7 +98,9 @@ Personal finance management platform. Intended user flow:
 | GET | `/health` | ✅ Working |
 | POST | `/auth/register` | ✅ Working — creates user, returns safe user info (no password hash) |
 | POST | `/auth/login` | ✅ Working — returns JWT `{ access_token, token_type: "bearer" }` |
-| GET | `/transactions` | ✅ Working — requires auth, returns current user's transactions only |
+| GET | `/auth/me` | ✅ Working — returns authenticated user's safe profile (`id`, `email`, `created_at`) |
+| GET | `/transactions` | ✅ Working — paginated list with search, type/category filters, sort; requires auth |
+| GET | `/transactions/categories` | ✅ Working — distinct categories for current user (autocomplete) |
 | POST | `/transactions` | ✅ Working — requires auth, normalizes category on save |
 | PUT | `/transactions/{id}` | ✅ Working — requires auth, updates user's own transaction |
 | DELETE | `/transactions/{id}` | ✅ Working — requires auth, deletes user's own transaction |
@@ -103,7 +109,24 @@ Personal finance management platform. Intended user flow:
 | PUT | `/budgets/{id}` | ✅ Working — requires auth, updates user's own budget |
 | DELETE | `/budgets/{id}` | ✅ Working — requires auth, deletes user's own budget |
 | GET | `/budgets/progress` | ✅ Working — case-insensitive category matching for spent totals |
-| GET | `/dashboard` | ✅ Working — aggregated financial overview for authenticated user |
+| GET | `/dashboard` | ✅ Working — aggregated overview; optional `?start_date=&end_date=` filters |
+
+**Query parameters (M8):**
+
+- `GET /transactions` — `page`, `page_size`, `sort_by` (`date` \| `amount` \| `category`), `sort_order` (`asc` \| `desc`), `search`, `type`, `category`
+- `GET /dashboard` — `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD); omit both for default all-time/current-month behavior
+
+**Transaction list response shape:**
+
+```json
+{
+  "items": [...],
+  "page": 1,
+  "page_size": 25,
+  "total_count": 42,
+  "total_pages": 2
+}
+```
 
 #### Authentication
 
@@ -111,7 +134,7 @@ Personal finance management platform. Intended user flow:
 - [x] JWT creation and validation (`python-jose`)
 - [x] `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`
 - [x] All data routes protected and scoped to authenticated user
-- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`, `TransactionUpdate`, `DashboardResponse`
+- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`, `TransactionUpdate`, `TransactionListResponse`, `DashboardResponse`
 
 ### Database
 
@@ -127,29 +150,23 @@ Personal finance management platform. Intended user flow:
 
 ### Transactions (remaining polish)
 
-- [ ] Server-side filtering, search, pagination
-- [ ] Transaction detail view
-
-### Dashboard (remaining polish)
-
-- [ ] Date range filtering for dashboard metrics
-- [ ] Income vs expense comparison chart (currently expenses-only trend)
+- [ ] Transaction detail view (single-transaction page)
 
 ### General / Infrastructure
 
 - [ ] Frontend Docker service in Compose
 - [ ] Unit / integration tests
 - [ ] CI/CD pipeline
+- [ ] Production deployment config
 
 ### Future polish (deferred)
 
 - [ ] Next.js middleware for server-side route protection
-- [ ] `/auth/me` endpoint
 - [ ] Token refresh / rotation
 - [ ] httpOnly cookie storage
 - [ ] Alembic migrations
-- [ ] Dedicated category table / autocomplete
-- [ ] Production deployment config
+- [ ] Dedicated category database table
+- [ ] Advanced dashboard analytics (goals, forecasts, etc.)
 
 ---
 
@@ -174,12 +191,15 @@ finance-app/
 │   ├── components/
 │   │   ├── auth/auth-guard.tsx
 │   │   ├── budgets/           ← form, card, edit dialog
-│   │   ├── dashboard/         ← summary cards, budget widget, recent tx, chart
+│   │   ├── dashboard/         ← widgets, charts, date range, skeleton
 │   │   ├── layout/            ← sidebar + shell
-│   │   └── transactions/      ← form, list, filters, edit dialog
+│   │   ├── transactions/      ← form, list, filters, pagination, autocomplete, edit dialog
+│   │   └── ui/                ← skeleton, error-state, shadcn primitives
 │   └── lib/
 │       ├── api.ts             ← backend HTTP client
 │       ├── auth.ts            ← JWT storage and helpers
+│       ├── categories.ts      ← common + merged user categories
+│       ├── date-range.ts      ← dashboard date presets
 │       ├── format.ts          ← currency/date formatting
 │       └── types.ts
 │
@@ -192,16 +212,18 @@ finance-app/
         │   ├── auth.py
         │   └── categories.py  ← category normalization
         ├── api/routes/
-        │   ├── auth.py
+        │   ├── auth.py        ← register, login, /me
         │   ├── budgets.py
-        │   ├── dashboard.py
-        │   └── transactions.py
+        │   ├── dashboard.py   ← optional date range query params
+        │   └── transactions.py ← pagination, sort, filters, /categories
         ├── services/
         │   ├── budget.py
-        │   └── dashboard.py
+        │   └── dashboard.py   ← income/expense comparison, date-scoped aggregation
         ├── db/migrate.py
         ├── models/
         └── schemas/
+            ├── dashboard.py
+            └── transaction_list.py
 ```
 
 ---
@@ -222,18 +244,24 @@ npm run dev
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
-### Testing transactions
+### Manual test checklist
 
-1. Sign in at `/login`
-2. Add transactions on `/transactions`
-3. Edit or delete using row actions
-4. Use search and filters (type, category)
-5. Verify `/dashboard` and `/budgets` reflect changes
+1. Register a new account at `/register`
+2. Sign in at `/login`
+3. Create income and expense transactions on `/transactions`
+4. Edit and delete transactions; verify category autocomplete suggestions
+5. Use search, type/category filters, sorting, and pagination
+6. Create budgets on `/budgets`; verify progress updates
+7. Open `/dashboard` — verify balance, summary cards, charts
+8. Change date range presets; confirm metrics and charts update
+9. Sign in as a second user — confirm no access to the first user's data
 
 ---
 
-## Suggested Next Steps
+## Suggested Next Steps (Milestone 9+)
 
-1. **Dashboard polish** — date range filters, income vs expense chart
-2. **Server-side transaction filtering** — pagination for large datasets
-3. **Category autocomplete** — suggest existing categories on create/edit
+1. **Deployment** — frontend Docker service, production Compose config, environment hardening
+2. **CI/CD** — automated tests and deploy pipeline
+3. **Auth hardening** — token refresh, httpOnly cookies, Next.js middleware
+4. **Database migrations** — Alembic for schema versioning
+5. **Category model** — dedicated table with managed categories (replace autocomplete-only approach)

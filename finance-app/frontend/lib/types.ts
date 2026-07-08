@@ -24,6 +24,27 @@ export interface TransactionUpdate {
   category: string;
 }
 
+export type TransactionSortBy = "date" | "amount" | "category";
+export type SortOrder = "asc" | "desc";
+
+export interface TransactionListParams {
+  page?: number;
+  page_size?: number;
+  sort_by?: TransactionSortBy;
+  sort_order?: SortOrder;
+  search?: string;
+  type?: TransactionType;
+  category?: string;
+}
+
+export interface TransactionListResponse {
+  items: Transaction[];
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -97,10 +118,23 @@ export interface MonthlySpendingTrend {
   total_expenses: string;
 }
 
+export interface MonthlyComparisonTrend {
+  month: string;
+  income: string;
+  expenses: string;
+  net_savings: string;
+}
+
 export interface DashboardData {
   current_balance: string;
   monthly_summary: MonthlySummary;
   recent_transactions: DashboardRecentTransaction[];
   budget_overview: BudgetProgress[];
   monthly_spending_trend: MonthlySpendingTrend[];
+  monthly_comparison_trend: MonthlyComparisonTrend[];
+}
+
+export interface DashboardParams {
+  start_date?: string;
+  end_date?: string;
 }

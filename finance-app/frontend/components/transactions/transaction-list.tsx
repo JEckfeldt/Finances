@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -19,8 +20,10 @@ interface TransactionListProps {
   transactions: Transaction[];
   isLoading?: boolean;
   hasAnyTransactions?: boolean;
+  isFiltered?: boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
+  onClearFilters?: () => void;
   deletingId?: number | null;
 }
 
@@ -28,15 +31,19 @@ export function TransactionList({
   transactions,
   isLoading,
   hasAnyTransactions = false,
+  isFiltered = false,
   onEdit,
   onDelete,
+  onClearFilters,
   deletingId,
 }: TransactionListProps) {
   if (isLoading) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        Loading transactions...
-      </p>
+      <div className="space-y-3">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={index} className="h-12 w-full" />
+        ))}
+      </div>
     );
   }
 
@@ -61,6 +68,11 @@ export function TransactionList({
         <p className="mt-1 text-sm text-muted-foreground">
           Try adjusting your search or filters to find what you are looking for.
         </p>
+        {isFiltered && onClearFilters && (
+          <Button variant="outline" className="mt-4" onClick={onClearFilters}>
+            Clear filters
+          </Button>
+        )}
       </div>
     );
   }

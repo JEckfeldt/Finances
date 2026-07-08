@@ -28,9 +28,17 @@ class MonthlySpendingTrend(BaseModel):
     total_expenses: Decimal
 
 
+class MonthlyComparisonTrend(BaseModel):
+    month: str
+    income: Decimal
+    expenses: Decimal
+    net_savings: Decimal
+
+
 class DashboardResponse(BaseModel):
     current_balance: Decimal
     monthly_summary: MonthlySummary
     recent_transactions: list[DashboardRecentTransaction]
     budget_overview: list[BudgetProgressResponse]
     monthly_spending_trend: list[MonthlySpendingTrend]
+    monthly_comparison_trend: list[MonthlyComparisonTrend]

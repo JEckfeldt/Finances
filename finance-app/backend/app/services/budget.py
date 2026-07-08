@@ -8,8 +8,22 @@ from app.models.transaction import Transaction, TransactionType
 from app.schemas.budget import BudgetProgressResponse
 
 
+from datetime import datetime
+from decimal import Decimal
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models.budget import Budget
+from app.models.transaction import Transaction, TransactionType
+from app.schemas.budget import BudgetProgressResponse
+
+
 def get_budget_progress_for_user(
-    db: Session, user_id: int
+    db: Session,
+    user_id: int,
+    start_dt: datetime | None = None,
+    end_dt: datetime | None = None,
 ) -> list[BudgetProgressResponse]:
     budgets = list(
         db.scalars(
@@ -19,17 +33,20 @@ def get_budget_progress_for_user(
         ).all()
     )
 
-    spent_rows = db.execute(
-        select(
-            func.lower(Transaction.category),
-            func.coalesce(func.sum(Transaction.amount), 0),
-        )
-        .where(
-            Transaction.user_id == user_id,
-            Transaction.type == TransactionType.EXPENSE,
-        )
-        .group_by(func.lower(Transaction.category))
-    ).all()
+    stmt = select(
+        func.lower(Transaction.category),
+        func.coalesce(func.sum(Transaction.amount), 0),
+    ).where(
+        Transaction.user_id == user_id,
+        Transaction.type == TransactionType.EXPENSE,
+    )
+    if start_dt is not None:
+        stmt = stmt.where(Transaction.created_at >= start_dt)
+    if end_dt is not None:
+        stmt = stmt.where(Transaction.created_at < end_dt)
+    stmt = stmt.group_by(func.lower(Transaction.category))
+
+    spent_rows = db.execute(stmt).all()
     spent_by_category = {
         category.lower(): Decimal(str(total)) for category, total in spent_rows
     }

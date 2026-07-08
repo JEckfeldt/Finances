@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import create_access_token, hash_password, verify_password
+from app.core.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserResponse
@@ -41,3 +41,10 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)) -> TokenResp
 
     access_token = create_access_token(user.id)
     return TokenResponse(access_token=access_token)
+
+
+@router.get("/me", response_model=UserResponse)
+def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    return current_user

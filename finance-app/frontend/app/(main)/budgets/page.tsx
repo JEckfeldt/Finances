@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { BudgetCard } from "@/components/budgets/budget-card";
 import { BudgetEditDialog } from "@/components/budgets/budget-edit-dialog";
 import { BudgetForm } from "@/components/budgets/budget-form";
+import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   deleteBudget,
   getBudgetProgress,
@@ -31,6 +33,16 @@ function mergeBudgetsWithProgress(
   });
 }
 
+function BudgetSkeletonGrid() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Skeleton key={index} className="h-56" />
+      ))}
+    </div>
+  );
+}
+
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<BudgetWithProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +53,7 @@ export default function BudgetsPage() {
   const loadBudgets = useCallback(async () => {
     try {
       setError(null);
+      setIsLoading(true);
       const [budgetList, progress] = await Promise.all([
         getBudgets(),
         getBudgetProgress(),
@@ -68,7 +81,6 @@ export default function BudgetsPage() {
     try {
       setDeletingId(budget.id);
       await deleteBudget(budget.id);
-      setIsLoading(true);
       await loadBudgets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete budget");
@@ -88,23 +100,21 @@ export default function BudgetsPage() {
 
       <BudgetForm
         onSuccess={() => {
-          setIsLoading(true);
           loadBudgets();
         }}
       />
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      {error && <ErrorState message={error} onRetry={loadBudgets} />}
 
       {isLoading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Loading budgets...
-        </p>
+        <BudgetSkeletonGrid />
       ) : budgets.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No budgets yet. Add your first budget above.
-        </p>
+        <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+          <p className="text-sm font-medium text-foreground">No budgets yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add your first budget above to start tracking spending limits.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {budgets.map((budget) => (
@@ -123,7 +133,6 @@ export default function BudgetsPage() {
         budget={editingBudget}
         onClose={() => setEditingBudget(null)}
         onSuccess={() => {
-          setIsLoading(true);
           loadBudgets();
         }}
       />

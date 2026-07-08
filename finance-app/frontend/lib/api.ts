@@ -5,10 +5,13 @@ import type {
   BudgetProgress,
   BudgetUpdate,
   DashboardData,
+  DashboardParams,
   LoginRequest,
   TokenResponse,
   Transaction,
   TransactionCreate,
+  TransactionListParams,
+  TransactionListResponse,
   TransactionUpdate,
   User,
   UserCreate,
@@ -54,6 +57,17 @@ async function authFetch(
   });
 }
 
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  }
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
 export async function register(data: UserCreate): Promise<User> {
   const response = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
@@ -72,9 +86,30 @@ export async function login(data: LoginRequest): Promise<TokenResponse> {
   return handleResponse<TokenResponse>(response);
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  const response = await authFetch("/transactions");
-  return handleResponse<Transaction[]>(response);
+export async function getCurrentUser(): Promise<User> {
+  const response = await authFetch("/auth/me");
+  return handleResponse<User>(response);
+}
+
+export async function getTransactions(
+  params: TransactionListParams = {}
+): Promise<TransactionListResponse> {
+  const query = buildQuery({
+    page: params.page,
+    page_size: params.page_size,
+    sort_by: params.sort_by,
+    sort_order: params.sort_order,
+    search: params.search,
+    type: params.type,
+    category: params.category === "all" ? undefined : params.category,
+  });
+  const response = await authFetch(`/transactions${query}`);
+  return handleResponse<TransactionListResponse>(response);
+}
+
+export async function getTransactionCategories(): Promise<string[]> {
+  const response = await authFetch("/transactions/categories");
+  return handleResponse<string[]>(response);
 }
 
 export async function createTransaction(
@@ -145,7 +180,13 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
   return handleResponse<BudgetProgress[]>(response);
 }
 
-export async function getDashboard(): Promise<DashboardData> {
-  const response = await authFetch("/dashboard");
+export async function getDashboard(
+  params: DashboardParams = {}
+): Promise<DashboardData> {
+  const query = buildQuery({
+    start_date: params.start_date,
+    end_date: params.end_date,
+  });
+  const response = await authFetch(`/dashboard${query}`);
   return handleResponse<DashboardData>(response);
 }
