@@ -23,11 +23,7 @@ import {
   getTransactionCategories,
   getTransactions,
 } from "@/lib/api";
-import type {
-  SortOrder,
-  Transaction,
-  TransactionSortBy,
-} from "@/lib/types";
+import type { Transaction } from "@/lib/types";
 
 const PAGE_SIZE = 25;
 
@@ -45,8 +41,6 @@ export default function TransactionsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<TransactionSortBy>("date");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [categories, setCategories] = useState<string[]>([]);
   const [hasAnyTransactions, setHasAnyTransactions] = useState(false);
 
@@ -79,8 +73,8 @@ export default function TransactionsPage() {
       const data = await getTransactions({
         page,
         page_size: PAGE_SIZE,
-        sort_by: sortBy,
-        sort_order: sortOrder,
+        sort_by: "date",
+        sort_order: "desc",
         search: debouncedSearch.trim() || undefined,
         type: typeFilter === "all" ? undefined : typeFilter,
         category: categoryFilter,
@@ -101,7 +95,7 @@ export default function TransactionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, sortBy, sortOrder, debouncedSearch, typeFilter, categoryFilter, isFiltered]);
+  }, [page, debouncedSearch, typeFilter, categoryFilter, isFiltered]);
 
   useEffect(() => {
     loadCategories();
@@ -113,7 +107,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, typeFilter, categoryFilter, sortBy, sortOrder]);
+  }, [debouncedSearch, typeFilter, categoryFilter]);
 
   function clearFilters() {
     setSearch("");
@@ -172,14 +166,10 @@ export default function TransactionsPage() {
               search={search}
               typeFilter={typeFilter}
               categoryFilter={categoryFilter}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
               categories={categories}
               onSearchChange={setSearch}
               onTypeFilterChange={setTypeFilter}
               onCategoryFilterChange={setCategoryFilter}
-              onSortByChange={setSortBy}
-              onSortOrderChange={setSortOrder}
             />
           )}
 

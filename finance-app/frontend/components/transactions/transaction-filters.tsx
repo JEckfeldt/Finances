@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SortOrder, TransactionSortBy, TransactionType } from "@/lib/types";
+import type { TransactionType } from "@/lib/types";
 
 export type TypeFilter = "all" | TransactionType;
 
@@ -17,32 +17,24 @@ interface TransactionFiltersProps {
   search: string;
   typeFilter: TypeFilter;
   categoryFilter: string;
-  sortBy: TransactionSortBy;
-  sortOrder: SortOrder;
   categories: string[];
   onSearchChange: (value: string) => void;
   onTypeFilterChange: (value: TypeFilter) => void;
   onCategoryFilterChange: (value: string) => void;
-  onSortByChange: (value: TransactionSortBy) => void;
-  onSortOrderChange: (value: SortOrder) => void;
 }
 
 export function TransactionFilters({
   search,
   typeFilter,
   categoryFilter,
-  sortBy,
-  sortOrder,
   categories,
   onSearchChange,
   onTypeFilterChange,
   onCategoryFilterChange,
-  onSortByChange,
-  onSortOrderChange,
 }: TransactionFiltersProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <div className="space-y-2 sm:col-span-2 lg:col-span-2 xl:col-span-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-2 sm:col-span-2 lg:col-span-1">
         <Label htmlFor="transaction-search">Search</Label>
         <Input
           id="transaction-search"
@@ -87,43 +79,6 @@ export function TransactionFilters({
                 {category}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Sort by</Label>
-        <Select
-          value={sortBy}
-          onValueChange={(value) =>
-            onSortByChange((value ?? "date") as TransactionSortBy)
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date">Date</SelectItem>
-            <SelectItem value="amount">Amount</SelectItem>
-            <SelectItem value="category">Category</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Order</Label>
-        <Select
-          value={sortOrder}
-          onValueChange={(value) =>
-            onSortOrderChange((value ?? "desc") as SortOrder)
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Order" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Descending</SelectItem>
-            <SelectItem value="asc">Ascending</SelectItem>
           </SelectContent>
         </Select>
       </div>
