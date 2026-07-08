@@ -4,6 +4,7 @@ import type {
   BudgetCreate,
   BudgetProgress,
   BudgetUpdate,
+  DashboardData,
   LoginRequest,
   TokenResponse,
   Transaction,
@@ -121,4 +122,9 @@ export async function deleteBudget(id: number): Promise<void> {
 export async function getBudgetProgress(): Promise<BudgetProgress[]> {
   const response = await authFetch("/budgets/progress");
   return handleResponse<BudgetProgress[]>(response);
+}
+
+export async function getDashboard(): Promise<DashboardData> {
+  const response = await authFetch("/dashboard");
+  return handleResponse<DashboardData>(response);
 }

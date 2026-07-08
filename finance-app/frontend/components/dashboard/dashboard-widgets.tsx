@@ -5,15 +5,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type {
+  BudgetProgress,
+  DashboardRecentTransaction,
+} from "@/lib/types";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 
-function PlaceholderValue() {
-  return (
-    <span className="text-2xl font-semibold text-muted-foreground/50">—</span>
-  );
+interface BalanceCardProps {
+  balance: string;
 }
 
-export function BalanceCard() {
+export function BalanceCard({ balance }: BalanceCardProps) {
+  const value = parseFloat(balance);
+  const isNegative = value < 0;
+
   return (
     <Card>
       <CardHeader>
@@ -21,20 +28,28 @@ export function BalanceCard() {
           <DollarSign className="size-4" />
           Current Balance
         </CardDescription>
-        <CardTitle className="text-3xl font-semibold">
-          <PlaceholderValue />
+        <CardTitle
+          className={`text-3xl font-semibold ${
+            isNegative ? "text-destructive" : "text-foreground"
+          }`}
+        >
+          {formatCurrency(balance)}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Total available funds across all accounts
+          Total income minus total expenses
         </p>
       </CardContent>
     </Card>
   );
 }
 
-export function IncomeSummaryCard() {
+interface IncomeSummaryCardProps {
+  income: string;
+}
+
+export function IncomeSummaryCard({ income }: IncomeSummaryCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -42,8 +57,8 @@ export function IncomeSummaryCard() {
           <TrendingUp className="size-4 text-primary" />
           Income Summary
         </CardDescription>
-        <CardTitle className="text-2xl font-semibold">
-          <PlaceholderValue />
+        <CardTitle className="text-2xl font-semibold text-primary">
+          {formatCurrency(income)}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -53,7 +68,11 @@ export function IncomeSummaryCard() {
   );
 }
 
-export function ExpenseSummaryCard() {
+interface ExpenseSummaryCardProps {
+  expenses: string;
+}
+
+export function ExpenseSummaryCard({ expenses }: ExpenseSummaryCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -62,7 +81,7 @@ export function ExpenseSummaryCard() {
           Expense Summary
         </CardDescription>
         <CardTitle className="text-2xl font-semibold">
-          <PlaceholderValue />
+          {formatCurrency(expenses)}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -72,7 +91,11 @@ export function ExpenseSummaryCard() {
   );
 }
 
-export function BudgetProgressCard() {
+interface BudgetProgressCardProps {
+  budgets: BudgetProgress[];
+}
+
+export function BudgetProgressCard({ budgets }: BudgetProgressCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -80,25 +103,53 @@ export function BudgetProgressCard() {
         <CardDescription>Spending against your budgets</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {["Groceries", "Transportation", "Entertainment"].map((category) => (
-            <div key={category} className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{category}</span>
-                <span className="text-muted-foreground/50">— / —</span>
-              </div>
-              <div className="h-2 rounded-full bg-muted">
-                <div className="h-2 w-0 rounded-full bg-primary/40" />
-              </div>
-            </div>
-          ))}
-        </div>
+        {budgets.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No budgets yet. Create one on the Budgets page.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {budgets.map((budget) => {
+              const percentage = Math.min(Math.max(budget.percentage, 0), 100);
+              const isOverBudget = parseFloat(budget.remaining) < 0;
+
+              return (
+                <div key={budget.category} className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{budget.category}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(budget.spent)} /{" "}
+                      {formatCurrency(budget.limit_amount)}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        isOverBudget ? "bg-destructive/70" : "bg-primary/40"
+                      }`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {budget.percentage.toFixed(0)}% used
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export function RecentTransactionsCard() {
+interface RecentTransactionsCardProps {
+  transactions: DashboardRecentTransaction[];
+}
+
+export function RecentTransactionsCard({
+  transactions,
+}: RecentTransactionsCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -106,38 +157,51 @@ export function RecentTransactionsCard() {
         <CardDescription>Your latest financial activity</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-3"
-            >
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground/50">Transaction</p>
-                <p className="text-xs text-muted-foreground/40">Category</p>
-              </div>
-              <span className="text-sm text-muted-foreground/50">—</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function FinancialTrendsCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Financial Trends</CardTitle>
-        <CardDescription>Income vs expenses over time</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30">
-          <p className="text-sm text-muted-foreground">
-            Chart will be displayed here
+        {transactions.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No transactions yet. Add one on the Transactions page.
           </p>
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {transactions.map((transaction) => (
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+              >
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{transaction.description}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        transaction.type === "income" ? "default" : "secondary"
+                      }
+                      className={
+                        transaction.type === "income"
+                          ? "bg-primary/10 text-primary hover:bg-primary/10"
+                          : ""
+                      }
+                    >
+                      {transaction.category}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(transaction.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <span
+                  className={`text-sm font-medium ${
+                    transaction.type === "income"
+                      ? "text-primary"
+                      : "text-foreground"
+                  }`}
+                >
+                  {transaction.type === "income" ? "+" : "-"}
+                  {formatCurrency(transaction.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

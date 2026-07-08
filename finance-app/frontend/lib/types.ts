@@ -70,3 +70,30 @@ export interface BudgetWithProgress extends Budget {
   remaining: string;
   percentage: number;
 }
+
+export interface MonthlySummary {
+  income: string;
+  expenses: string;
+}
+
+export interface DashboardRecentTransaction {
+  id: number;
+  description: string;
+  amount: string;
+  type: TransactionType;
+  category: string;
+  created_at: string;
+}
+
+export interface MonthlySpendingTrend {
+  month: string;
+  total_expenses: string;
+}
+
+export interface DashboardData {
+  current_balance: string;
+  monthly_summary: MonthlySummary;
+  recent_transactions: DashboardRecentTransaction[];
+  budget_overview: BudgetProgress[];
+  monthly_spending_trend: MonthlySpendingTrend[];
+}

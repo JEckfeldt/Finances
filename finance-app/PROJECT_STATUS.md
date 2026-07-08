@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 5 complete (July 2026).
+> Last updated: Milestone 6 complete (July 2026).
 
 ## Vision
 
@@ -26,7 +26,7 @@ Personal finance management platform. Intended user flow:
 | M3 — Authentication (JWT) | ✅ Complete | Register/login, JWT auth, protected routes, password hashing |
 | M4 — User isolation | ✅ Complete | Transactions scoped to authenticated user via JWT |
 | M5 — Budget CRUD | ✅ Complete | Budget model, CRUD API, progress calculation, functional budgets page |
-| M6 — Dashboard analytics | ❌ Not started | Live calculations, charts, trends |
+| M6 — Dashboard analytics | ✅ Complete | Live balance, monthly summary, budget progress, recent transactions, spending chart |
 
 ---
 
@@ -46,7 +46,7 @@ Personal finance management platform. Intended user flow:
 - [x] shadcn/ui (base-nova style) — Button, Card, Input, Label, Select, Table, Badge, Separator
 - [x] React Hook Form + Zod (used on transactions and budgets forms)
 - [x] Lucide React icons
-- [x] Recharts installed (not yet used in UI)
+- [x] Recharts (used on dashboard spending trends chart)
 - [x] Off-white / soft-green theme in `globals.css`
 - [x] App shell with sidebar navigation (`AppShell`, `SidebarNav`)
 - [x] Route group `(main)` wrapping authenticated pages behind `AuthGuard`
@@ -62,7 +62,7 @@ Personal finance management platform. Intended user flow:
 |-------|--------|---------|
 | `/login` | **Functional** | Email/password form, stores JWT on success, redirects to dashboard |
 | `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
-| `/dashboard` | Placeholder UI | Protected — widget layout for balance, income/expense summaries, budget progress, recent transactions, trends chart area — all show `—` or empty states |
+| `/dashboard` | **Functional** | Protected — live balance, monthly income/expenses, budget progress, recent transactions, 6-month spending chart |
 | `/transactions` | **Functional** | Protected — create form + transaction table, authenticated API calls, refreshes after add |
 | `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars from live transaction data |
 
@@ -75,7 +75,7 @@ Personal finance management platform. Intended user flow:
 - [x] Auto table creation on startup (`Base.metadata.create_all`)
 - [x] Lightweight legacy migration for `users` table columns (`db/migrate.py`)
 - [x] Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
-- [x] Empty `services/` package (reserved for business logic)
+- [x] Business logic in `services/` — budget progress and dashboard aggregation
 
 #### Models
 
@@ -99,14 +99,15 @@ Personal finance management platform. Intended user flow:
 | PUT | `/budgets/{id}` | ✅ Working — requires auth, updates user's own budget |
 | DELETE | `/budgets/{id}` | ✅ Working — requires auth, deletes user's own budget |
 | GET | `/budgets/progress` | ✅ Working — requires auth, calculates spent/remaining/percentage from expense transactions matched by category |
+| GET | `/dashboard` | ✅ Working — requires auth, returns balance, monthly summary, recent transactions, budget overview, monthly spending trend |
 
 #### Authentication
 
 - [x] Password hashing via passlib + bcrypt (`bcrypt==4.0.1` pinned for compatibility)
 - [x] JWT creation and validation (`python-jose`)
 - [x] `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`
-- [x] Transaction and budget routes protected and scoped to authenticated user
-- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`
+- [x] All data routes protected and scoped to authenticated user
+- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`, `DashboardResponse`
 
 ### Database
 
@@ -128,14 +129,10 @@ Personal finance management platform. Intended user flow:
 - [ ] Transaction filtering, search, pagination
 - [ ] Transaction detail view
 
-### Dashboard
+### Dashboard (remaining polish)
 
-- [ ] Real balance calculation
-- [ ] Income / expense summaries from transaction data
-- [ ] Budget progress widget (pulls from `/budgets/progress`)
-- [ ] Recent transactions widget (pulls from API)
-- [ ] Financial trends chart (Recharts)
-- [ ] Date range filtering
+- [ ] Date range filtering for dashboard metrics
+- [ ] Income vs expense comparison chart (currently expenses-only trend)
 
 ### General / Infrastructure
 
@@ -176,12 +173,13 @@ finance-app/
 │   ├── components/
 │   │   ├── auth/auth-guard.tsx
 │   │   ├── budgets/           ← form, card, edit dialog (functional)
+│   │   ├── dashboard/         ← summary cards, budget widget, recent tx, chart
 │   │   ├── layout/            ← sidebar + shell
-│   │   ├── dashboard/         ← placeholder widgets
 │   │   └── transactions/      ← form + list (functional)
 │   └── lib/
-│       ├── api.ts             ← backend HTTP client (auth, transactions, budgets)
+│       ├── api.ts             ← backend HTTP client
 │       ├── auth.ts            ← JWT storage and helpers
+│       ├── format.ts          ← currency/date formatting
 │       └── types.ts
 │
 └── backend/
@@ -192,12 +190,16 @@ finance-app/
         │   ├── config.py      ← settings incl. JWT config
         │   └── auth.py        ← hashing, JWT, get_current_user
         ├── api/
-        │   ├── router.py      ← registers auth, budgets, transactions routers
+        │   ├── router.py      ← registers all routers
         │   ├── deps.py
         │   └── routes/
         │       ├── auth.py
-        │       ├── budgets.py   ← CRUD + progress
+        │       ├── budgets.py
+        │       ├── dashboard.py
         │       └── transactions.py
+        ├── services/
+        │   ├── budget.py      ← shared budget progress logic
+        │   └── dashboard.py   ← dashboard aggregation
         ├── db/
         │   └── migrate.py     ← legacy users table column migration
         ├── models/
@@ -207,6 +209,7 @@ finance-app/
         └── schemas/
             ├── user.py
             ├── budget.py
+            ├── dashboard.py
             └── transaction.py
 ```
 
@@ -228,37 +231,24 @@ npm run dev
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
-### Testing budgets
+### Testing the dashboard
 
 1. Sign in at `/login`
-2. Go to `/budgets` and add a budget (e.g. Groceries, $500)
-3. Add expense transactions on `/transactions` with matching category (e.g. Groceries)
-4. Return to `/budgets` — spent, remaining, and progress bar update from transaction data
-5. Edit or delete budgets using the card actions
+2. Add income and expense transactions on `/transactions`
+3. Create budgets on `/budgets` with matching categories
+4. Visit `/dashboard` — balance, monthly summary, budget progress, recent transactions, and spending chart update from live data
 
 **API quick test:**
 
 ```bash
-# Login (save the access_token)
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"alice@test.com","password":"password123"}'
-
-# Create budget
-curl -X POST http://localhost:8000/budgets \
-  -H "Authorization: Bearer <access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"category":"Groceries","limit_amount":500.00}'
-
-# Get progress
-curl http://localhost:8000/budgets/progress \
+curl http://localhost:8000/dashboard \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ---
 
-## Suggested Next Steps (Milestone 6+)
+## Suggested Next Steps
 
-1. **Dashboard wiring** — aggregate transaction and budget data into dashboard widgets
-2. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
-3. **Financial trends chart** — wire Recharts to transaction history
+1. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
+2. **Dashboard polish** — date range filters, income vs expense chart
+3. **Category normalization** — consistent category matching across transactions and budgets
