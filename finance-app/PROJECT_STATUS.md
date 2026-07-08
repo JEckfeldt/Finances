@@ -33,6 +33,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M7 — Transaction management | Complete | Full transaction CRUD, filtering, category normalization, FK constraints |
 | M8 — Dashboard and UX refinement | Complete | Income vs expense chart, pagination, loading/error states, `/auth/me` |
 | M9 — Deployment and production readiness | Complete | Frontend Docker container, full-stack Compose, env docs, startup validation |
+| M10 — Automated backend testing | Complete | pytest suite, isolated test database, auth/transaction/budget/dashboard coverage |
 
 ---
 
@@ -85,6 +86,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Production startup skips automatic schema changes (`APP_ENV=production`)
 - Startup validation for required configuration and database connectivity
 - Structured logging on backend startup and shutdown
+- Automated backend test suite (`backend/tests/`) with pytest, pytest-asyncio, and FastAPI TestClient
+- Isolated test database workflow (`finance_app_test` by default; never uses development DB)
 - Lightweight startup migrations (`db/migrate.py`): users columns, transaction_date column, foreign keys
 - Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
 - Business logic in `services/`: budget progress and dashboard aggregation
@@ -193,6 +196,35 @@ Changes applied after Milestone 8 without starting Milestone 9:
 
 ---
 
+## Milestone 10 — Automated Backend Testing Foundation
+
+| Item | Details |
+|------|---------|
+| Test infrastructure | `pytest.ini`, `requirements-dev.txt`, `tests/conftest.py` |
+| Database isolation | Separate `finance_app_test` database; tables recreated per test |
+| Auth tests | Registration, login, password hashing, JWT protected routes |
+| Transaction tests | CRUD, category normalization, user isolation |
+| Budget tests | CRUD, case-insensitive progress calculation |
+| Dashboard tests | Balance aggregation, monthly filtering, widget limits (5 recent tx, 5 budgets) |
+| Documentation | README testing section with install and run instructions |
+
+Run from `backend/` with the virtual environment activated:
+
+```bash
+cd backend
+python -m venv .venv   # first time only
+
+# Activate venv (choose one):
+# PowerShell:  .venv\Scripts\Activate.ps1
+# CMD:         .venv\Scripts\activate.bat
+# macOS/Linux: source .venv/bin/activate
+
+pip install -r requirements-dev.txt
+pytest
+```
+
+---
+
 ## What Is NOT Implemented
 
 ### Transactions
@@ -202,7 +234,6 @@ Changes applied after Milestone 8 without starting Milestone 9:
 
 ### General / Infrastructure
 
-- Unit / integration tests
 - CI/CD pipeline
 - Alembic migration system (production schema changes currently manual when `APP_ENV=production`)
 
@@ -256,6 +287,9 @@ finance-app/
 │
 └── backend/
     ├── Dockerfile
+    ├── pytest.ini
+    ├── requirements-dev.txt
+    ├── tests/                      conftest, test_auth, test_transactions, test_budgets, test_dashboard
     └── app/
         ├── main.py
         ├── core/                     config, auth, categories
@@ -307,11 +341,28 @@ npm run dev
 8. Confirm sidebar spans full viewport height on short pages
 9. Sign in as a second user — confirm no access to the first user's data
 
+### Automated backend tests
+
+From `backend/` with PostgreSQL running and the virtual environment activated:
+
+```bash
+cd backend
+python -m venv .venv   # first time only
+
+# Activate venv (choose one):
+# PowerShell:  .venv\Scripts\Activate.ps1
+# CMD:         .venv\Scripts\activate.bat
+# macOS/Linux: source .venv/bin/activate
+
+pip install -r requirements-dev.txt
+pytest
+```
+
 ---
 
 ## Suggested Next Steps
 
-1. CI/CD — automated tests and deploy pipeline
+1. CI/CD — wire pytest into GitHub Actions and deploy pipeline
 2. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
 3. Alembic migrations — replace manual production schema provisioning
 4. Category model — dedicated table with managed categories (optional; forms currently use free-text input)
