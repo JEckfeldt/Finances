@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 6 complete (July 2026).
+> Last updated: Milestone 7 complete (July 2026).
 
 ## Vision
 
@@ -27,6 +27,7 @@ Personal finance management platform. Intended user flow:
 | M4 — User isolation | ✅ Complete | Transactions scoped to authenticated user via JWT |
 | M5 — Budget CRUD | ✅ Complete | Budget model, CRUD API, progress calculation, functional budgets page |
 | M6 — Dashboard analytics | ✅ Complete | Live balance, monthly summary, budget progress, recent transactions, spending chart |
+| M7 — Transaction management | ✅ Complete | Full transaction CRUD, filtering, category normalization, FK constraints |
 
 ---
 
@@ -63,7 +64,7 @@ Personal finance management platform. Intended user flow:
 | `/login` | **Functional** | Email/password form, stores JWT on success, redirects to dashboard |
 | `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
 | `/dashboard` | **Functional** | Protected — live balance, monthly income/expenses, budget progress, recent transactions, 6-month spending chart |
-| `/transactions` | **Functional** | Protected — create form + transaction table, authenticated API calls, refreshes after add |
+| `/transactions` | **Functional** | Protected — create/edit/delete transactions, search and filter (type, category), responsive table |
 | `/budgets` | **Functional** | Protected — add/edit/delete budgets, progress bars from live transaction data |
 
 ### Backend
@@ -73,17 +74,18 @@ Personal finance management platform. Intended user flow:
 - [x] SQLAlchemy 2.x engine + session (`db/session.py`, `db/base.py`)
 - [x] Config from environment (`core/config.py`) — includes `SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
 - [x] Auto table creation on startup (`Base.metadata.create_all`)
-- [x] Lightweight legacy migration for `users` table columns (`db/migrate.py`)
+- [x] Lightweight startup migrations (`db/migrate.py`) — users columns, foreign keys
 - [x] Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
 - [x] Business logic in `services/` — budget progress and dashboard aggregation
+- [x] Category normalization (`core/categories.py`) — trim + title case on save, case-insensitive budget matching
 
 #### Models
 
 | Model | Status | Fields |
 |-------|--------|--------|
-| `Transaction` | ✅ Active | `id`, `user_id`, `description`, `amount`, `type` (income/expense), `category`, `created_at` |
+| `Transaction` | ✅ Active | `id`, `user_id` (FK → users, CASCADE), `description`, `amount`, `type`, `category`, `created_at` |
 | `User` | ✅ Active | `id`, `email` (unique, indexed), `hashed_password`, `created_at` |
-| `Budget` | ✅ Active | `id`, `user_id`, `category`, `limit_amount`, `created_at`, `updated_at` |
+| `Budget` | ✅ Active | `id`, `user_id` (FK → users, CASCADE), `category`, `limit_amount`, `created_at`, `updated_at` |
 
 #### API Endpoints
 
@@ -93,13 +95,15 @@ Personal finance management platform. Intended user flow:
 | POST | `/auth/register` | ✅ Working — creates user, returns safe user info (no password hash) |
 | POST | `/auth/login` | ✅ Working — returns JWT `{ access_token, token_type: "bearer" }` |
 | GET | `/transactions` | ✅ Working — requires auth, returns current user's transactions only |
-| POST | `/transactions` | ✅ Working — requires auth, assigns authenticated user's ID |
+| POST | `/transactions` | ✅ Working — requires auth, normalizes category on save |
+| PUT | `/transactions/{id}` | ✅ Working — requires auth, updates user's own transaction |
+| DELETE | `/transactions/{id}` | ✅ Working — requires auth, deletes user's own transaction |
 | GET | `/budgets` | ✅ Working — requires auth, returns current user's budgets |
-| POST | `/budgets` | ✅ Working — requires auth, creates budget for current user |
+| POST | `/budgets` | ✅ Working — requires auth, normalizes category on save |
 | PUT | `/budgets/{id}` | ✅ Working — requires auth, updates user's own budget |
 | DELETE | `/budgets/{id}` | ✅ Working — requires auth, deletes user's own budget |
-| GET | `/budgets/progress` | ✅ Working — requires auth, calculates spent/remaining/percentage from expense transactions matched by category |
-| GET | `/dashboard` | ✅ Working — requires auth, returns balance, monthly summary, recent transactions, budget overview, monthly spending trend |
+| GET | `/budgets/progress` | ✅ Working — case-insensitive category matching for spent totals |
+| GET | `/dashboard` | ✅ Working — aggregated financial overview for authenticated user |
 
 #### Authentication
 
@@ -107,26 +111,23 @@ Personal finance management platform. Intended user flow:
 - [x] JWT creation and validation (`python-jose`)
 - [x] `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`
 - [x] All data routes protected and scoped to authenticated user
-- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`, `DashboardResponse`
+- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`, `TransactionUpdate`, `DashboardResponse`
 
 ### Database
 
 - [x] PostgreSQL connected from backend
-- [x] `transactions` table with correct schema and `user_id` index
+- [x] `transactions` table with `user_id` FK → `users.id` ON DELETE CASCADE
 - [x] `users` table with auth fields (`email`, `hashed_password`, `created_at`)
-- [x] `budgets` table with `user_id` index, `category`, `limit_amount`, timestamps
-- [x] Startup migration adds missing auth columns to legacy `users` tables
-- [ ] Foreign key constraints (`transactions.user_id`, `budgets.user_id` → `users.id`)
+- [x] `budgets` table with `user_id` FK → `users.id` ON DELETE CASCADE
+- [x] Startup migration adds missing auth columns and foreign keys to legacy databases
 
 ---
 
 ## What Is NOT Implemented
 
-### Transactions (remaining)
+### Transactions (remaining polish)
 
-- [ ] Edit transaction
-- [ ] Delete transaction
-- [ ] Transaction filtering, search, pagination
+- [ ] Server-side filtering, search, pagination
 - [ ] Transaction detail view
 
 ### Dashboard (remaining polish)
@@ -147,7 +148,7 @@ Personal finance management platform. Intended user flow:
 - [ ] Token refresh / rotation
 - [ ] httpOnly cookie storage
 - [ ] Alembic migrations
-- [ ] Category normalization
+- [ ] Dedicated category table / autocomplete
 - [ ] Production deployment config
 
 ---
@@ -172,10 +173,10 @@ finance-app/
 │   │   └── register/page.tsx
 │   ├── components/
 │   │   ├── auth/auth-guard.tsx
-│   │   ├── budgets/           ← form, card, edit dialog (functional)
+│   │   ├── budgets/           ← form, card, edit dialog
 │   │   ├── dashboard/         ← summary cards, budget widget, recent tx, chart
 │   │   ├── layout/            ← sidebar + shell
-│   │   └── transactions/      ← form + list (functional)
+│   │   └── transactions/      ← form, list, filters, edit dialog
 │   └── lib/
 │       ├── api.ts             ← backend HTTP client
 │       ├── auth.ts            ← JWT storage and helpers
@@ -185,32 +186,22 @@ finance-app/
 └── backend/
     ├── Dockerfile
     └── app/
-        ├── main.py            ← FastAPI entry, CORS, lifespan, migration
+        ├── main.py            ← FastAPI entry, CORS, lifespan, migrations
         ├── core/
-        │   ├── config.py      ← settings incl. JWT config
-        │   └── auth.py        ← hashing, JWT, get_current_user
-        ├── api/
-        │   ├── router.py      ← registers all routers
-        │   ├── deps.py
-        │   └── routes/
-        │       ├── auth.py
-        │       ├── budgets.py
-        │       ├── dashboard.py
-        │       └── transactions.py
+        │   ├── config.py
+        │   ├── auth.py
+        │   └── categories.py  ← category normalization
+        ├── api/routes/
+        │   ├── auth.py
+        │   ├── budgets.py
+        │   ├── dashboard.py
+        │   └── transactions.py
         ├── services/
-        │   ├── budget.py      ← shared budget progress logic
-        │   └── dashboard.py   ← dashboard aggregation
-        ├── db/
-        │   └── migrate.py     ← legacy users table column migration
-        ├── models/
-        │   ├── user.py
         │   ├── budget.py
-        │   └── transaction.py
+        │   └── dashboard.py
+        ├── db/migrate.py
+        ├── models/
         └── schemas/
-            ├── user.py
-            ├── budget.py
-            ├── dashboard.py
-            └── transaction.py
 ```
 
 ---
@@ -231,24 +222,18 @@ npm run dev
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
-### Testing the dashboard
+### Testing transactions
 
 1. Sign in at `/login`
-2. Add income and expense transactions on `/transactions`
-3. Create budgets on `/budgets` with matching categories
-4. Visit `/dashboard` — balance, monthly summary, budget progress, recent transactions, and spending chart update from live data
-
-**API quick test:**
-
-```bash
-curl http://localhost:8000/dashboard \
-  -H "Authorization: Bearer <access_token>"
-```
+2. Add transactions on `/transactions`
+3. Edit or delete using row actions
+4. Use search and filters (type, category)
+5. Verify `/dashboard` and `/budgets` reflect changes
 
 ---
 
 ## Suggested Next Steps
 
-1. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
-2. **Dashboard polish** — date range filters, income vs expense chart
-3. **Category normalization** — consistent category matching across transactions and budgets
+1. **Dashboard polish** — date range filters, income vs expense chart
+2. **Server-side transaction filtering** — pagination for large datasets
+3. **Category autocomplete** — suggest existing categories on create/edit

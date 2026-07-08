@@ -17,6 +17,13 @@ export interface TransactionCreate {
   category: string;
 }
 
+export interface TransactionUpdate {
+  description: string;
+  amount: number;
+  type: TransactionType;
+  category: string;
+}
+
 export interface User {
   id: number;
   email: string;

@@ -20,18 +20,23 @@ def get_budget_progress_for_user(
     )
 
     spent_rows = db.execute(
-        select(Transaction.category, func.coalesce(func.sum(Transaction.amount), 0))
+        select(
+            func.lower(Transaction.category),
+            func.coalesce(func.sum(Transaction.amount), 0),
+        )
         .where(
             Transaction.user_id == user_id,
             Transaction.type == TransactionType.EXPENSE,
         )
-        .group_by(Transaction.category)
+        .group_by(func.lower(Transaction.category))
     ).all()
-    spent_by_category = {category: Decimal(str(total)) for category, total in spent_rows}
+    spent_by_category = {
+        category.lower(): Decimal(str(total)) for category, total in spent_rows
+    }
 
     progress: list[BudgetProgressResponse] = []
     for budget in budgets:
-        spent = spent_by_category.get(budget.category, Decimal("0"))
+        spent = spent_by_category.get(budget.category.lower(), Decimal("0"))
         remaining = budget.limit_amount - spent
         percentage = (
             float(spent / budget.limit_amount * 100) if budget.limit_amount > 0 else 0.0

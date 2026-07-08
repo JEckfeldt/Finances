@@ -9,6 +9,7 @@ import type {
   TokenResponse,
   Transaction,
   TransactionCreate,
+  TransactionUpdate,
   User,
   UserCreate,
 } from "@/lib/types";
@@ -84,6 +85,26 @@ export async function createTransaction(
     body: JSON.stringify(data),
   });
   return handleResponse<Transaction>(response);
+}
+
+export async function updateTransaction(
+  id: number,
+  data: TransactionUpdate
+): Promise<Transaction> {
+  const response = await authFetch(`/transactions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Transaction>(response);
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  const response = await authFetch(`/transactions/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    await handleResponse(response);
+  }
 }
 
 export async function getBudgets(): Promise<Budget[]> {

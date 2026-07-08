@@ -1,17 +1,35 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.categories import normalize_category
 
 
 class BudgetCreate(BaseModel):
     category: str = Field(..., min_length=1, max_length=100)
     limit_amount: Decimal = Field(..., gt=0, decimal_places=2)
 
+    @field_validator("category")
+    @classmethod
+    def normalize_category_field(cls, value: str) -> str:
+        normalized = normalize_category(value)
+        if not normalized:
+            raise ValueError("Category is required")
+        return normalized
+
 
 class BudgetUpdate(BaseModel):
     category: str = Field(..., min_length=1, max_length=100)
     limit_amount: Decimal = Field(..., gt=0, decimal_places=2)
+
+    @field_validator("category")
+    @classmethod
+    def normalize_category_field(cls, value: str) -> str:
+        normalized = normalize_category(value)
+        if not normalized:
+            raise ValueError("Category is required")
+        return normalized
 
 
 class BudgetResponse(BaseModel):
