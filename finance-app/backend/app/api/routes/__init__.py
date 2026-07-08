@@ -1,3 +1,3 @@
-from app.api.routes import transactions
+from app.api.routes import auth, transactions
 
-__all__ = ["transactions"]
+__all__ = ["auth", "transactions"]

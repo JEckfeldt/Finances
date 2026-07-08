@@ -1,14 +1,18 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { clearAuth, getEmail } from "@/lib/auth";
 import {
-  LayoutDashboard,
   ArrowLeftRight,
+  LayoutDashboard,
+  LogOut,
   PiggyBank,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,6 +22,17 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEmail(getEmail());
+  }, []);
+
+  function handleLogout() {
+    clearAuth();
+    router.replace("/login");
+  }
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
@@ -26,8 +41,7 @@ export function SidebarNav() {
           <Wallet className="size-5 text-primary" />
         </div>
         <div>
-          <p className="font-semibold text-foreground">Finance</p>
-          <p className="text-xs text-muted-foreground">Personal dashboard</p>
+          <p className="font-semibold text-foreground">Finance Tracker</p>
         </div>
       </div>
 
@@ -51,6 +65,22 @@ export function SidebarNav() {
           );
         })}
       </nav>
+
+      <div className="border-t border-border p-4">
+        {email && (
+          <p className="mb-3 truncate px-3 text-xs text-muted-foreground">
+            Signed in as {email}
+          </p>
+        )}
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2"
+          onClick={handleLogout}
+        >
+          <LogOut className="size-4" />
+          Log out
+        </Button>
+      </div>
     </aside>
   );
 }

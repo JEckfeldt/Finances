@@ -1,7 +1,7 @@
 # Project Status
 
 > Living document tracking what has been built and what remains.
-> Last updated: Milestone 2 complete (July 2026).
+> Last updated: Milestone 3 complete (July 2026).
 
 ## Vision
 
@@ -23,8 +23,8 @@ Personal finance management platform. Intended user flow:
 |-----------|--------|---------|
 | M1 — Project foundation | ✅ Complete | Monorepo scaffold, Next.js + FastAPI + Docker Postgres |
 | M2 — Pages, transactions, DB | ✅ Complete | UI shell, themed pages, transaction CRUD (create/view), DB connected |
-| M3 — Authentication (JWT) | ❌ Not started | Login, registration, token-based auth |
-| M4 — User isolation | ❌ Not started | Real per-user data ownership |
+| M3 — Authentication (JWT) | ✅ Complete | Register/login, JWT auth, protected routes, password hashing |
+| M4 — User isolation | ✅ Complete | Transactions scoped to authenticated user via JWT |
 | M5 — Budget CRUD | ❌ Not started | Full budget management |
 | M6 — Dashboard analytics | ❌ Not started | Live calculations, charts, trends |
 
@@ -37,7 +37,7 @@ Personal finance management platform. Intended user flow:
 - [x] Monorepo layout (`frontend/`, `backend/`, root config)
 - [x] Docker Compose: PostgreSQL 16 (persistent volume, health check)
 - [x] Docker Compose: FastAPI backend service
-- [x] Environment config (`.env.example`, `CORS_ORIGINS`, `DATABASE_URL`, `NEXT_PUBLIC_API_URL`)
+- [x] Environment config (`.env.example`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`)
 - [x] Root `.gitignore`
 
 ### Frontend
@@ -49,25 +49,31 @@ Personal finance management platform. Intended user flow:
 - [x] Recharts installed (not yet used in UI)
 - [x] Off-white / soft-green theme in `globals.css`
 - [x] App shell with sidebar navigation (`AppShell`, `SidebarNav`)
-- [x] Route group `(main)` wrapping authenticated-style pages
+- [x] Route group `(main)` wrapping authenticated pages behind `AuthGuard`
 - [x] Root `/` redirects to `/dashboard`
 - [x] API client (`lib/api.ts`) and shared types (`lib/types.ts`)
+- [x] Auth state management (`lib/auth.ts`) — JWT + email in `localStorage`
+- [x] Login and registration pages (`/login`, `/register`)
+- [x] Sidebar logout button and signed-in email display
 
 #### Pages
 
 | Route | Status | Details |
 |-------|--------|---------|
-| `/dashboard` | Placeholder UI | Widget layout for balance, income/expense summaries, budget progress, recent transactions, trends chart area — all show `—` or empty states |
-| `/transactions` | **Functional** | Create form + transaction table, connected to backend, refreshes after add |
-| `/budgets` | Placeholder UI | Static skeleton cards (Groceries, Transportation, etc.) with no data or actions |
+| `/login` | **Functional** | Email/password form, stores JWT on success, redirects to dashboard |
+| `/register` | **Functional** | Email/password registration (min 8 chars), redirects to login |
+| `/dashboard` | Placeholder UI | Protected — widget layout for balance, income/expense summaries, budget progress, recent transactions, trends chart area — all show `—` or empty states |
+| `/transactions` | **Functional** | Protected — create form + transaction table, authenticated API calls, refreshes after add |
+| `/budgets` | Placeholder UI | Protected — static skeleton cards (Groceries, Transportation, etc.) with no data or actions |
 
 ### Backend
 
 - [x] FastAPI app with CORS middleware
 - [x] Health endpoint: `GET /health`
 - [x] SQLAlchemy 2.x engine + session (`db/session.py`, `db/base.py`)
-- [x] Config from environment (`core/config.py`)
+- [x] Config from environment (`core/config.py`) — includes `SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
 - [x] Auto table creation on startup (`Base.metadata.create_all`)
+- [x] Lightweight legacy migration for `users` table columns (`db/migrate.py`)
 - [x] Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
 - [x] Empty `services/` package (reserved for business logic)
 
@@ -76,44 +82,49 @@ Personal finance management platform. Intended user flow:
 | Model | Status | Fields |
 |-------|--------|--------|
 | `Transaction` | ✅ Active | `id`, `user_id`, `description`, `amount`, `type` (income/expense), `category`, `created_at` |
-| `User` | Placeholder | `id`, `email` — table exists, not used by auth yet |
+| `User` | ✅ Active | `id`, `email` (unique, indexed), `hashed_password`, `created_at` |
 
 #### API Endpoints
 
 | Method | Endpoint | Status |
 |--------|----------|--------|
 | GET | `/health` | ✅ Working |
-| GET | `/transactions` | ✅ Working — filtered by placeholder `user_id` |
-| POST | `/transactions` | ✅ Working — assigns placeholder `user_id` |
+| POST | `/auth/register` | ✅ Working — creates user, returns safe user info (no password hash) |
+| POST | `/auth/login` | ✅ Working — returns JWT `{ access_token, token_type: "bearer" }` |
+| GET | `/transactions` | ✅ Working — requires auth, returns current user's transactions only |
+| POST | `/transactions` | ✅ Working — requires auth, assigns authenticated user's ID |
 
-#### Auth (preparation only)
+#### Authentication
 
-- [x] `core/auth.py` with `get_current_user_id()` returning fixed `DEFAULT_USER_ID = 1`
-- [x] All transaction queries filter by `user_id`
-- [x] `python-jose` and `passlib[bcrypt]` installed but unused
-- [ ] JWT issuance, validation, login/register routes
+- [x] Password hashing via passlib + bcrypt (`bcrypt==4.0.1` pinned for compatibility)
+- [x] JWT creation and validation (`python-jose`)
+- [x] `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`
+- [x] Transaction routes protected and scoped to authenticated user
+- [x] Pydantic schemas: `UserCreate`, `LoginRequest`, `TokenResponse`, `UserResponse`
+- [ ] `/auth/me` endpoint (email currently stored client-side after login)
+- [ ] Token refresh flow
+- [ ] httpOnly cookie-based auth (currently localStorage JWT)
 
 ### Database
 
 - [x] PostgreSQL connected from backend
 - [x] `transactions` table with correct schema and `user_id` index
-- [x] `users` table created (placeholder)
+- [x] `users` table with auth fields (`email`, `hashed_password`, `created_at`)
+- [x] Startup migration adds missing auth columns to legacy `users` tables
 - [ ] Alembic migrations (dependency installed, not configured)
-- [ ] Seed data or migration scripts
+- [ ] Foreign key constraint from `transactions.user_id` → `users.id`
+- [ ] Seed data scripts
 
 ---
 
 ## What Is NOT Implemented
 
-### Authentication & Users
+### Authentication (remaining polish)
 
-- [ ] Login / registration pages
-- [ ] JWT token generation and validation
-- [ ] Protected routes on frontend
-- [ ] Auth middleware / dependencies on backend
-- [ ] Password hashing flow
-- [ ] Real user creation and session management
-- [ ] Per-user data isolation (currently all data uses `user_id = 1`)
+- [ ] Next.js middleware for server-side route protection (currently client-side `AuthGuard` only)
+- [ ] `/auth/me` endpoint for fetching current user profile
+- [ ] Token refresh / rotation
+- [ ] httpOnly cookie storage (more secure than localStorage)
 
 ### Transactions (remaining)
 
@@ -142,7 +153,7 @@ Personal finance management platform. Intended user flow:
 ### General / Infrastructure
 
 - [ ] Frontend Docker service in Compose
-- [ ] Alembic migration setup
+- [ ] Alembic migration setup (replace `create_all` + ad-hoc column migration)
 - [ ] API error handling standards
 - [ ] Unit / integration tests
 - [ ] CI/CD pipeline
@@ -160,29 +171,45 @@ finance-app/
 ├── .env.example
 │
 ├── frontend/
-│   ├── app/(main)/
-│   │   ├── layout.tsx         ← AppShell wrapper
-│   │   ├── dashboard/page.tsx
-│   │   ├── transactions/page.tsx
-│   │   └── budgets/page.tsx
+│   ├── app/
+│   │   ├── (main)/
+│   │   │   ├── layout.tsx     ← AuthGuard + AppShell wrapper
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── transactions/page.tsx
+│   │   │   └── budgets/page.tsx
+│   │   ├── login/page.tsx
+│   │   └── register/page.tsx
 │   ├── components/
+│   │   ├── auth/auth-guard.tsx
 │   │   ├── layout/            ← sidebar + shell
 │   │   ├── dashboard/         ← placeholder widgets
 │   │   └── transactions/      ← form + list (functional)
 │   └── lib/
-│       ├── api.ts             ← backend HTTP client
+│       ├── api.ts             ← backend HTTP client (auth + transactions)
+│       ├── auth.ts            ← JWT storage and helpers
 │       └── types.ts
 │
 └── backend/
     ├── Dockerfile
     └── app/
-        ├── main.py            ← FastAPI entry, CORS, lifespan
+        ├── main.py            ← FastAPI entry, CORS, lifespan, migration
         ├── core/
-        │   ├── config.py
-        │   └── auth.py        ← placeholder user ID
-        ├── api/routes/transactions.py
-        ├── models/transaction.py
-        └── schemas/transaction.py
+        │   ├── config.py      ← settings incl. JWT config
+        │   └── auth.py        ← hashing, JWT, get_current_user
+        ├── api/
+        │   ├── router.py      ← registers auth + transactions routers
+        │   ├── deps.py
+        │   └── routes/
+        │       ├── auth.py    ← register, login
+        │       └── transactions.py
+        ├── db/
+        │   └── migrate.py     ← legacy users table column migration
+        ├── models/
+        │   ├── user.py
+        │   └── transaction.py
+        └── schemas/
+            ├── user.py
+            └── transaction.py
 ```
 
 ---
@@ -203,12 +230,45 @@ npm run dev
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
+### Testing authentication
+
+1. Visit http://localhost:3000 — unauthenticated users are redirected to `/login`
+2. Register a user at `/register` (password must be at least 8 characters)
+3. Sign in at `/login` — JWT is stored and used for all API calls
+4. Create transactions on `/transactions` — only visible to the signed-in user
+5. Log out from the sidebar — token is cleared, redirected to `/login`
+
+**API quick test:**
+
+```bash
+# Register
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@test.com","password":"password123"}'
+
+# Login (save the access_token)
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@test.com","password":"password123"}'
+
+# Authenticated request
+curl http://localhost:8000/transactions \
+  -H "Authorization: Bearer <access_token>"
+```
+
+**Clean database reset** (if upgrading from pre-auth schema):
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
 ---
 
-## Suggested Next Steps (Milestone 3+)
+## Suggested Next Steps (Milestone 5+)
 
-1. **Authentication** — JWT login/register, protect routes, replace `DEFAULT_USER_ID`
-2. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
-3. **Budget model + CRUD** — backend model, API, functional budgets page
-4. **Dashboard wiring** — aggregate transaction data into dashboard widgets
-5. **Alembic migrations** — replace `create_all` with versioned migrations
+1. **Transaction edit/delete** — `PUT/PATCH` and `DELETE` endpoints + UI
+2. **Budget model + CRUD** — backend model, API, functional budgets page
+3. **Dashboard wiring** — aggregate transaction data into dashboard widgets
+4. **Alembic migrations** — replace `create_all` with versioned migrations
+5. **Auth polish** — `/auth/me` endpoint, httpOnly cookies, Next.js middleware

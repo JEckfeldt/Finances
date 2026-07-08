@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_user
 from app.db.session import get_db
 from app.models.transaction import Transaction
+from app.models.user import User
 from app.schemas.transaction import TransactionCreate, TransactionResponse
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -13,11 +14,11 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 @router.get("", response_model=list[TransactionResponse])
 def list_transactions(
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> list[Transaction]:
     stmt = (
         select(Transaction)
-        .where(Transaction.user_id == user_id)
+        .where(Transaction.user_id == current_user.id)
         .order_by(Transaction.created_at.desc())
     )
     return list(db.scalars(stmt).all())
@@ -27,10 +28,10 @@ def list_transactions(
 def create_transaction(
     transaction_in: TransactionCreate,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> Transaction:
     transaction = Transaction(
-        user_id=user_id,
+        user_id=current_user.id,
         description=transaction_in.description,
         amount=transaction_in.amount,
         type=transaction_in.type,
