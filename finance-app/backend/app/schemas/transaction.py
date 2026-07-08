@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
@@ -12,6 +12,7 @@ class TransactionCreate(BaseModel):
     amount: Decimal = Field(..., gt=0, decimal_places=2)
     type: TransactionType
     category: str = Field(..., min_length=1, max_length=100)
+    transaction_date: date
 
     @field_validator("description")
     @classmethod
@@ -32,6 +33,7 @@ class TransactionUpdate(BaseModel):
     amount: Decimal = Field(..., gt=0, decimal_places=2)
     type: TransactionType
     category: str = Field(..., min_length=1, max_length=100)
+    transaction_date: date
 
     @field_validator("description")
     @classmethod
@@ -54,6 +56,7 @@ class TransactionResponse(BaseModel):
     amount: Decimal
     type: TransactionType
     category: str
+    transaction_date: date
     created_at: datetime
 
     model_config = {"from_attributes": True}

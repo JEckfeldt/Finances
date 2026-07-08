@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.base import Base
-from app.db.migrate import migrate_foreign_keys, migrate_users_table
+from app.db.migrate import migrate_foreign_keys, migrate_transactions_table, migrate_users_table
 from app.db.session import engine
 from app.models import Budget, Transaction, User  # noqa: F401 — register models with metadata
 
@@ -15,6 +15,7 @@ from app.models import Budget, Transaction, User  # noqa: F401 — register mode
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     migrate_users_table()
+    migrate_transactions_table()
     migrate_foreign_keys()
     yield
 

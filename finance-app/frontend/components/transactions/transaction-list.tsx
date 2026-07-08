@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatTransactionDate } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
 
 interface TransactionListProps {
@@ -112,7 +112,7 @@ export function TransactionList({
                 </Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {formatDate(transaction.created_at)}
+                {formatTransactionDate(transaction.transaction_date)}
               </TableCell>
               <TableCell
                 className={`text-right font-medium ${

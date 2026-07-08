@@ -7,6 +7,7 @@ export interface Transaction {
   amount: string;
   type: TransactionType;
   category: string;
+  transaction_date: string;
   created_at: string;
 }
 
@@ -15,6 +16,7 @@ export interface TransactionCreate {
   amount: number;
   type: TransactionType;
   category: string;
+  transaction_date: string;
 }
 
 export interface TransactionUpdate {
@@ -22,6 +24,7 @@ export interface TransactionUpdate {
   amount: number;
   type: TransactionType;
   category: string;
+  transaction_date: string;
 }
 
 export type TransactionSortBy = "date" | "amount" | "category";
@@ -110,6 +113,7 @@ export interface DashboardRecentTransaction {
   amount: string;
   type: TransactionType;
   category: string;
+  transaction_date: string;
   created_at: string;
 }
 

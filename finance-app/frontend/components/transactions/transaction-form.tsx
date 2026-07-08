@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createTransaction } from "@/lib/api";
+import { todayDateInputValue } from "@/lib/format";
 import type { TransactionCreate } from "@/lib/types";
 
 const transactionSchema = z.object({
@@ -29,6 +30,7 @@ const transactionSchema = z.object({
   amount: z.number().positive("Amount must be greater than zero"),
   type: z.enum(["income", "expense"]),
   category: z.string().min(1, "Category is required").max(100),
+  transaction_date: z.string().min(1, "Date is required"),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -52,6 +54,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       amount: undefined,
       type: "expense",
       category: "",
+      transaction_date: todayDateInputValue(),
     },
   });
 
@@ -63,10 +66,17 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       amount: data.amount,
       type: data.type,
       category: data.category,
+      transaction_date: data.transaction_date,
     };
 
     await createTransaction(payload);
-    reset();
+    reset({
+      description: "",
+      amount: undefined,
+      type: "expense",
+      category: "",
+      transaction_date: todayDateInputValue(),
+    });
     await onSuccess();
   }
 
@@ -129,6 +139,20 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               {errors.type && (
                 <p className="text-sm text-destructive">
                   {errors.type.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="transaction-date">Date</Label>
+              <Input
+                id="transaction-date"
+                type="date"
+                {...register("transaction_date")}
+              />
+              {errors.transaction_date && (
+                <p className="text-sm text-destructive">
+                  {errors.transaction_date.message}
                 </p>
               )}
             </div>

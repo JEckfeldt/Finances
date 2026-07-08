@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatTransactionDate } from "@/lib/format";
 import type {
   BudgetProgress,
   DashboardRecentTransaction,
@@ -194,7 +194,7 @@ export function RecentTransactionsCard({
                       {transaction.category}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(transaction.created_at)}
+                      {formatTransactionDate(transaction.transaction_date)}
                     </span>
                   </div>
                 </div>

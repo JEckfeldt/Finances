@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -18,6 +18,7 @@ class DashboardRecentTransaction(BaseModel):
     amount: Decimal
     type: TransactionType
     category: str
+    transaction_date: date
     created_at: datetime
 
     model_config = {"from_attributes": True}

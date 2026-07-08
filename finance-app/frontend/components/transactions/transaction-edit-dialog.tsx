@@ -30,6 +30,7 @@ const transactionEditSchema = z.object({
   amount: z.number().positive("Amount must be greater than zero"),
   type: z.enum(["income", "expense"]),
   category: z.string().min(1, "Category is required").max(100),
+  transaction_date: z.string().min(1, "Date is required"),
 });
 
 type TransactionEditFormValues = z.infer<typeof transactionEditSchema>;
@@ -65,6 +66,7 @@ export function TransactionEditDialog({
         amount: parseFloat(transaction.amount),
         type: transaction.type,
         category: transaction.category,
+        transaction_date: transaction.transaction_date,
       });
     }
   }, [transaction, reset]);
@@ -81,6 +83,7 @@ export function TransactionEditDialog({
       amount: data.amount,
       type: data.type,
       category: data.category,
+      transaction_date: data.transaction_date,
     };
 
     await updateTransaction(transactionId, payload);
@@ -140,6 +143,20 @@ export function TransactionEditDialog({
                     <SelectItem value="expense">Expense</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-transaction-date">Date</Label>
+                <Input
+                  id="edit-transaction-date"
+                  type="date"
+                  {...register("transaction_date")}
+                />
+                {errors.transaction_date && (
+                  <p className="text-sm text-destructive">
+                    {errors.transaction_date.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2 sm:col-span-2">

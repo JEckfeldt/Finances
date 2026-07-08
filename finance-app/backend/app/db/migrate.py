@@ -38,6 +38,34 @@ def migrate_users_table() -> None:
             )
 
 
+def migrate_transactions_table() -> None:
+    """Add transaction_date column and backfill from created_at for legacy rows."""
+    inspector = inspect(engine)
+    if "transactions" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("transactions")}
+
+    with engine.begin() as connection:
+        if "transaction_date" not in columns:
+            connection.execute(
+                text("ALTER TABLE transactions ADD COLUMN transaction_date DATE")
+            )
+            connection.execute(
+                text(
+                    "UPDATE transactions "
+                    "SET transaction_date = created_at::date "
+                    "WHERE transaction_date IS NULL"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE transactions "
+                    "ALTER COLUMN transaction_date SET NOT NULL"
+                )
+            )
+
+
 def migrate_foreign_keys() -> None:
     """Add user foreign keys to existing tables when missing."""
     with engine.begin() as connection:

@@ -18,7 +18,7 @@ from app.schemas.transaction_list import TransactionListResponse
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 SORT_COLUMNS = {
-    "date": Transaction.created_at,
+    "date": Transaction.transaction_date,
     "amount": Transaction.amount,
     "category": Transaction.category,
 }
@@ -140,6 +140,7 @@ def create_transaction(
         amount=transaction_in.amount,
         type=transaction_in.type,
         category=transaction_in.category,
+        transaction_date=transaction_in.transaction_date,
     )
     db.add(transaction)
     db.commit()
@@ -164,6 +165,7 @@ def update_transaction(
     transaction.amount = transaction_in.amount
     transaction.type = transaction_in.type
     transaction.category = transaction_in.category
+    transaction.transaction_date = transaction_in.transaction_date
     db.commit()
     db.refresh(transaction)
     return transaction

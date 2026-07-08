@@ -1,7 +1,8 @@
+from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import DateTime, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.models.transaction import Transaction, TransactionType
@@ -27,11 +28,15 @@ def _datetime_end_exclusive(d: date) -> datetime:
     return _datetime_start(d + timedelta(days=1))
 
 
-def _apply_date_filters(stmt, start_dt: datetime | None, end_dt: datetime | None):
-    if start_dt is not None:
-        stmt = stmt.where(Transaction.created_at >= start_dt)
-    if end_dt is not None:
-        stmt = stmt.where(Transaction.created_at < end_dt)
+def _apply_transaction_date_filters(
+    stmt,
+    start_date: date | None,
+    end_date: date | None,
+):
+    if start_date is not None:
+        stmt = stmt.where(Transaction.transaction_date >= start_date)
+    if end_date is not None:
+        stmt = stmt.where(Transaction.transaction_date <= end_date)
     return stmt
 
 
@@ -39,14 +44,14 @@ def _sum_by_type(
     db: Session,
     user_id: int,
     transaction_type: TransactionType,
-    start_dt: datetime | None = None,
-    end_dt: datetime | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> Decimal:
     stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.user_id == user_id,
         Transaction.type == transaction_type,
     )
-    stmt = _apply_date_filters(stmt, start_dt, end_dt)
+    stmt = _apply_transaction_date_filters(stmt, start_date, end_date)
     total = db.scalar(stmt)
     return Decimal(str(total))
 
@@ -89,25 +94,21 @@ def _recent_months(count: int) -> list[tuple[int, int]]:
     return list(reversed(months))
 
 
-def _month_bounds(year: int, month: int) -> tuple[datetime, datetime]:
-    start = datetime(year, month, 1, tzinfo=UTC)
-    if month == 12:
-        end = datetime(year + 1, 1, 1, tzinfo=UTC)
-    else:
-        end = datetime(year, month + 1, 1, tzinfo=UTC)
-    return start, end
+def _month_date_bounds(year: int, month: int) -> tuple[date, date]:
+    last_day = monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
 
 
 def _totals_by_month_and_type(
     db: Session,
     user_id: int,
     transaction_type: TransactionType,
-    start_dt: datetime | None,
-    end_dt: datetime | None,
+    start_date: date | None,
+    end_date: date | None,
 ) -> dict[tuple[int, int], Decimal]:
-    month_bucket = func.date_trunc("month", Transaction.created_at).label(
-        "month_bucket"
-    )
+    month_bucket = func.date_trunc(
+        "month", cast(Transaction.transaction_date, DateTime)
+    ).label("month_bucket")
     stmt = select(
         month_bucket,
         func.coalesce(func.sum(Transaction.amount), 0),
@@ -115,7 +116,7 @@ def _totals_by_month_and_type(
         Transaction.user_id == user_id,
         Transaction.type == transaction_type,
     )
-    stmt = _apply_date_filters(stmt, start_dt, end_dt)
+    stmt = _apply_transaction_date_filters(stmt, start_date, end_date)
     stmt = stmt.group_by(month_bucket)
 
     rows = db.execute(stmt).all()
@@ -129,15 +130,15 @@ def get_dashboard_for_user(
     end_date: date | None = None,
 ) -> DashboardResponse:
     has_date_filter = start_date is not None or end_date is not None
-    start_dt = _datetime_start(start_date) if start_date else None
-    end_dt = _datetime_end_exclusive(end_date) if end_date else None
+    budget_start_dt = _datetime_start(start_date) if start_date else None
+    budget_end_dt = _datetime_end_exclusive(end_date) if end_date else None
 
     if has_date_filter:
         period_income = _sum_by_type(
-            db, user_id, TransactionType.INCOME, start_dt, end_dt
+            db, user_id, TransactionType.INCOME, start_date, end_date
         )
         period_expenses = _sum_by_type(
-            db, user_id, TransactionType.EXPENSE, start_dt, end_dt
+            db, user_id, TransactionType.EXPENSE, start_date, end_date
         )
         current_balance = period_income - period_expenses
         summary = MonthlySummary(income=period_income, expenses=period_expenses)
@@ -146,8 +147,8 @@ def get_dashboard_for_user(
         total_expenses = _sum_by_type(db, user_id, TransactionType.EXPENSE)
         current_balance = total_income - total_expenses
 
-        now = datetime.now(UTC)
-        month_start, month_end = _month_bounds(now.year, now.month)
+        now = datetime.now(UTC).date()
+        month_start, month_end = _month_date_bounds(now.year, now.month)
         summary = MonthlySummary(
             income=_sum_by_type(
                 db, user_id, TransactionType.INCOME, month_start, month_end
@@ -160,21 +161,24 @@ def get_dashboard_for_user(
     recent_stmt = (
         select(Transaction)
         .where(Transaction.user_id == user_id)
-        .order_by(Transaction.created_at.desc())
+        .order_by(
+            Transaction.transaction_date.desc(),
+            Transaction.created_at.desc(),
+        )
         .limit(RECENT_TRANSACTION_LIMIT)
     )
-    recent_stmt = _apply_date_filters(recent_stmt, start_dt, end_dt)
+    recent_stmt = _apply_transaction_date_filters(recent_stmt, start_date, end_date)
     recent_transactions = list(db.scalars(recent_stmt).all())
 
     budget_overview = get_budget_progress_for_user(
-        db, user_id, start_dt=start_dt, end_dt=end_dt
+        db, user_id, start_dt=budget_start_dt, end_dt=budget_end_dt
     )
 
     income_by_month = _totals_by_month_and_type(
-        db, user_id, TransactionType.INCOME, start_dt, end_dt
+        db, user_id, TransactionType.INCOME, start_date, end_date
     )
     expense_by_month = _totals_by_month_and_type(
-        db, user_id, TransactionType.EXPENSE, start_dt, end_dt
+        db, user_id, TransactionType.EXPENSE, start_date, end_date
     )
 
     month_keys = _months_in_range(start_date, end_date, DEFAULT_TREND_MONTH_COUNT)

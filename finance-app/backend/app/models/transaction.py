@@ -1,8 +1,8 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,6 +24,7 @@ class Transaction(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
     category: Mapped[str] = mapped_column(String(100))
+    transaction_date: Mapped[date] = mapped_column(Date, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
