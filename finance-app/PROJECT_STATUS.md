@@ -69,7 +69,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 |-------|--------|---------|
 | `/login` | Functional | Email/password form, stores JWT on success, redirects to dashboard |
 | `/register` | Functional | Email/password registration (min 8 chars), redirects to login |
-| `/dashboard` | Functional | Balance, income, and expense summary cards; budget progress; recent transactions; spending and income/expense charts |
+| `/dashboard` | Functional | All-time balance card; current-month income and expense cards; budget progress; recent transactions; spending and income/expense charts |
 | `/transactions` | Functional | Create/edit/delete with user-selected transaction date; free-text category; server-side search, type/category filters, pagination; empty states |
 | `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states |
 
@@ -83,6 +83,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Lightweight startup migrations (`db/migrate.py`): users columns, transaction_date column, foreign keys
 - Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
 - Business logic in `services/`: budget progress and dashboard aggregation
+- Dashboard summary cards: all-time balance; current-month income and expenses (filtered by `transaction_date`)
 - Category normalization (`core/categories.py`): trim + title case on save, case-insensitive budget matching
 
 #### Models
@@ -165,6 +166,8 @@ Changes applied after Milestone 8 without starting Milestone 9:
 | Sort controls removed (UI) | Transactions page no longer shows Sort By / Order; list defaults to date descending via API |
 | Transaction date field | User-selectable `transaction_date` on create/edit; displayed in list and dashboard recent transactions |
 | Dashboard date selector removed (UI) | Date range dropdown removed from dashboard; default metrics always shown |
+| Dashboard summary card scopes | Balance uses all-time totals; income and expense cards use current month only; each card subtitle matches its data |
+| Edit dialog Select fix | Type select in transaction edit dialog stays controlled on first render |
 
 ---
 
@@ -265,7 +268,7 @@ npm run dev
 4. Edit and delete transactions; confirm date is preserved/updated
 5. Use search, type/category filters, and pagination on `/transactions`
 6. Create budgets on `/budgets`; verify progress updates
-7. Open `/dashboard` — verify summary cards, budget progress, recent transactions, and charts
+7. Open `/dashboard` — verify balance is all-time, income/expense cards are current month, and charts load correctly
 8. Confirm sidebar spans full viewport height on short pages
 9. Sign in as a second user — confirm no access to the first user's data
 

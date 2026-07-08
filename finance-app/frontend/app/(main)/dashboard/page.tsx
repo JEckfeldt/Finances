@@ -16,7 +16,12 @@ import { ErrorState } from "@/components/ui/error-state";
 import { getDashboard } from "@/lib/api";
 import type { DashboardData } from "@/lib/types";
 
-const PERIOD_LABEL = "All-time balance · This month's summary";
+function getCurrentMonthLabel(): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+}
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -83,14 +88,14 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <BalanceCard balance={dashboard.current_balance} periodLabel={PERIOD_LABEL} />
+        <BalanceCard balance={dashboard.current_balance} />
         <IncomeSummaryCard
           income={dashboard.monthly_summary.income}
-          periodLabel={PERIOD_LABEL}
+          periodLabel={`Income for ${getCurrentMonthLabel()}`}
         />
         <ExpenseSummaryCard
           expenses={dashboard.monthly_summary.expenses}
-          periodLabel={PERIOD_LABEL}
+          periodLabel={`Expenses for ${getCurrentMonthLabel()}`}
         />
       </div>
 

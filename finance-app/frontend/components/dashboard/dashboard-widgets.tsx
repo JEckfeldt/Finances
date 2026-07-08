@@ -39,7 +39,7 @@ export function BalanceCard({ balance, periodLabel }: BalanceCardProps) {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          {periodLabel ?? "Total income minus total expenses"}
+          {periodLabel ?? "Current Balance"}
         </p>
       </CardContent>
     </Card>
