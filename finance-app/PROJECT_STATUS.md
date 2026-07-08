@@ -32,6 +32,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M6 — Dashboard analytics | Complete | Live balance, monthly summary, budget progress, recent transactions, spending chart |
 | M7 — Transaction management | Complete | Full transaction CRUD, filtering, category normalization, FK constraints |
 | M8 — Dashboard and UX refinement | Complete | Income vs expense chart, pagination, loading/error states, `/auth/me` |
+| M9 — Deployment and production readiness | Complete | Frontend Docker container, full-stack Compose, env docs, startup validation |
 
 ---
 
@@ -41,8 +42,9 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - Monorepo layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16 (persistent volume, health check)
-- Docker Compose: FastAPI backend service
-- Environment config (`.env.example`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`)
+- Docker Compose: FastAPI backend service with health check
+- Docker Compose: Next.js frontend production container
+- Environment config (`.env.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`)
 - Root `.gitignore`
 
 ### Frontend
@@ -79,7 +81,10 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Health endpoint: `GET /health`
 - SQLAlchemy 2.x engine + session (`db/session.py`, `db/base.py`)
 - Config from environment (`core/config.py`): `SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`
-- Auto table creation on startup (`Base.metadata.create_all`)
+- Auto table creation and startup migrations in development (`APP_ENV=development`)
+- Production startup skips automatic schema changes (`APP_ENV=production`)
+- Startup validation for required configuration and database connectivity
+- Structured logging on backend startup and shutdown
 - Lightweight startup migrations (`db/migrate.py`): users columns, transaction_date column, foreign keys
 - Package structure: `api/`, `core/`, `models/`, `schemas/`, `services/`, `db/`
 - Business logic in `services/`: budget progress and dashboard aggregation
@@ -175,6 +180,19 @@ Changes applied after Milestone 8 without starting Milestone 9:
 
 ---
 
+## Milestone 9 — Deployment and Production Readiness
+
+| Item | Details |
+|------|---------|
+| Frontend Dockerfile | Multi-stage Next.js build with standalone output |
+| Docker Compose | Single command starts postgres, backend, and frontend |
+| Environment docs | Updated `.env.example` with `APP_ENV` and variable descriptions |
+| Backend validation | Validates `SECRET_KEY`, `DATABASE_URL`, and CORS on startup |
+| Production schema safety | `APP_ENV=production` skips automatic schema creation/migrations |
+| Logging | Structured backend startup/shutdown and error logging |
+
+---
+
 ## What Is NOT Implemented
 
 ### Transactions
@@ -184,10 +202,9 @@ Changes applied after Milestone 8 without starting Milestone 9:
 
 ### General / Infrastructure
 
-- Frontend Docker service in Compose
 - Unit / integration tests
 - CI/CD pipeline
-- Production deployment config
+- Alembic migration system (production schema changes currently manual when `APP_ENV=production`)
 
 ### Future polish (deferred)
 
@@ -207,10 +224,13 @@ Changes applied after Milestone 8 without starting Milestone 9:
 finance-app/
 ├── PROJECT_STATUS.md
 ├── README.md
-├── docker-compose.yml
+├── docker-compose.yml         postgres + backend + frontend
 ├── .env.example
 │
 ├── frontend/
+│   ├── Dockerfile             multi-stage production build
+│   ├── .dockerignore
+│   ├── next.config.ts         standalone output for Docker
 │   ├── app/
 │   │   ├── layout.tsx              Geist font loading, global typography
 │   │   ├── globals.css             Theme tokens, font-sans wiring
@@ -250,19 +270,30 @@ finance-app/
 
 ## How to Run
 
-```bash
-# Terminal 1 — database + backend
-cd finance-app
-docker compose up -d --build
+### Full stack (Docker)
 
-# Terminal 2 — frontend
-cd finance-app/frontend
-npm run dev
+```bash
+cd finance-app
+cp .env.example .env   # first time only
+docker compose up -d --build
 ```
 
 - Frontend: http://localhost:3000
 - Backend: http://localhost:8000
 - API docs: http://localhost:8000/docs
+
+### Local frontend development
+
+```bash
+# Terminal 1 — database + backend
+cd finance-app
+docker compose up -d postgres backend
+
+# Terminal 2 — frontend
+cd finance-app/frontend
+npm install
+npm run dev
+```
 
 ### Manual test checklist
 
@@ -278,10 +309,9 @@ npm run dev
 
 ---
 
-## Suggested Next Steps (Milestone 9+)
+## Suggested Next Steps
 
-1. Deployment — frontend Docker service, production Compose config, environment hardening
-2. CI/CD — automated tests and deploy pipeline
-3. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
-4. Database migrations — Alembic for schema versioning
-5. Category model — dedicated table with managed categories (optional; forms currently use free-text input)
+1. CI/CD — automated tests and deploy pipeline
+2. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
+3. Alembic migrations — replace manual production schema provisioning
+4. Category model — dedicated table with managed categories (optional; forms currently use free-text input)
