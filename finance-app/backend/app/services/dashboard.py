@@ -17,6 +17,7 @@ from app.schemas.dashboard import (
 from app.services.budget import get_budget_progress_for_user
 
 RECENT_TRANSACTION_LIMIT = 5
+BUDGET_OVERVIEW_LIMIT = 5
 DEFAULT_TREND_MONTH_COUNT = 6
 
 
@@ -170,9 +171,13 @@ def get_dashboard_for_user(
     recent_stmt = _apply_transaction_date_filters(recent_stmt, start_date, end_date)
     recent_transactions = list(db.scalars(recent_stmt).all())
 
-    budget_overview = get_budget_progress_for_user(
-        db, user_id, start_dt=budget_start_dt, end_dt=budget_end_dt
-    )
+    budget_overview = sorted(
+        get_budget_progress_for_user(
+            db, user_id, start_dt=budget_start_dt, end_dt=budget_end_dt
+        ),
+        key=lambda budget: budget.percentage,
+        reverse=True,
+    )[:BUDGET_OVERVIEW_LIMIT]
 
     income_by_month = _totals_by_month_and_type(
         db, user_id, TransactionType.INCOME, start_date, end_date
