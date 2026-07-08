@@ -1,6 +1,8 @@
 # Finance App
 
-A production-quality personal finance application monorepo. This repository provides the foundational architecture for a full-stack finance app with a Next.js frontend, FastAPI backend, and PostgreSQL database.
+A personal finance management platform with a clean, modern dashboard aesthetic. Users can view their financial overview, manage transactions, and track budgets.
+
+> **Project state:** See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for a full breakdown of what is and is not implemented.
 
 ## Technology Stack
 
@@ -14,19 +16,32 @@ A production-quality personal finance application monorepo. This repository prov
 
 ```
 finance-app/
-├── frontend/           # Next.js application
+├── frontend/
+│   ├── app/
+│   │   ├── (main)/          # App shell with navigation
+│   │   │   ├── dashboard/
+│   │   │   ├── transactions/
+│   │   │   └── budgets/
+│   │   └── page.tsx         # Redirects to /dashboard
+│   ├── components/
+│   │   ├── dashboard/       # Dashboard placeholder widgets
+│   │   ├── layout/          # App shell and sidebar navigation
+│   │   ├── transactions/    # Transaction list and form
+│   │   └── ui/              # shadcn/ui components
+│   └── lib/                 # API client and types
 ├── backend/
 │   ├── app/
-│   │   ├── main.py     # FastAPI application entry point
-│   │   ├── api/        # API route modules
-│   │   ├── core/       # Configuration and shared utilities
-│   │   ├── models/     # SQLAlchemy models
-│   │   ├── schemas/    # Pydantic schemas
-│   │   ├── services/   # Business logic
-│   │   └── db/         # Database session and migrations
+│   │   ├── main.py
+│   │   ├── api/             # Routes and dependencies
+│   │   ├── core/            # Config and auth (JWT-ready)
+│   │   ├── models/          # SQLAlchemy models
+│   │   ├── schemas/         # Pydantic schemas
+│   │   ├── services/
+│   │   └── db/              # Database session
+│   ├── Dockerfile
 │   └── requirements.txt
-├── docker-compose.yml  # PostgreSQL service
-├── .env.example        # Environment variable template
+├── docker-compose.yml       # PostgreSQL + backend services
+├── .env.example
 ├── .gitignore
 └── README.md
 ```
@@ -39,13 +54,13 @@ finance-app/
 
 ## Installation
 
-1. Clone the repository and navigate to the project root:
+1. Navigate to the project root:
 
    ```bash
    cd finance-app
    ```
 
-2. Copy the environment template and fill in your values:
+2. Copy the environment template:
 
    ```bash
    cp .env.example .env
@@ -56,24 +71,33 @@ finance-app/
    ```bash
    cd frontend
    npm install
+   cp ../.env.example .env.local   # or set NEXT_PUBLIC_API_URL
    ```
 
-4. Install backend dependencies:
+4. Install backend dependencies (optional if using Docker for backend):
 
    ```bash
    cd ../backend
    python -m venv .venv
-
-   # Windows
-   .venv\Scripts\activate
-
-   # macOS / Linux
-   source .venv/bin/activate
-
+   .venv\Scripts\activate        # Windows
    pip install -r requirements.txt
    ```
 
-## Starting the Frontend
+## Starting Services
+
+### PostgreSQL and Backend (Docker)
+
+From the project root:
+
+```bash
+docker compose up -d --build
+```
+
+- PostgreSQL: `localhost:5432`
+- Backend API: [http://localhost:8000](http://localhost:8000)
+- Health check: [http://localhost:8000/health](http://localhost:8000/health)
+
+### Frontend (local dev)
 
 From the `frontend/` directory:
 
@@ -81,36 +105,35 @@ From the `frontend/` directory:
 npm run dev
 ```
 
-The development server runs at [http://localhost:3000](http://localhost:3000).
+The app runs at [http://localhost:3000](http://localhost:3000) and redirects to `/dashboard`.
 
-## Starting the Backend
+### Backend (local dev, without Docker)
 
-From the `backend/` directory with your virtual environment activated:
+Ensure PostgreSQL is running, then from `backend/`:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API server runs at [http://localhost:8000](http://localhost:8000).
+## API Endpoints
 
-## Starting PostgreSQL with Docker Compose
+| Method | Endpoint        | Description              |
+|--------|-----------------|--------------------------|
+| GET    | `/health`       | Health check             |
+| GET    | `/transactions` | List user transactions   |
+| POST   | `/transactions` | Create a transaction   |
 
-From the project root, ensure your `.env` file contains `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`, then start the database:
+## Pages
 
-```bash
-docker compose up -d
-```
+| Route           | Status                                      |
+|-----------------|---------------------------------------------|
+| `/dashboard`    | Layout with placeholder financial widgets   |
+| `/transactions` | Full create and view implementation         |
+| `/budgets`      | Skeleton with placeholder budget cards      |
 
-PostgreSQL is exposed on port `5432`. Data is persisted in the `postgres_data` Docker volume.
-
-To stop the database:
-
-```bash
-docker compose down
-```
-
-To stop and remove persisted data:
+## Stopping Services
 
 ```bash
-docker compose down -v
+docker compose down       # Stop containers
+docker compose down -v    # Stop and remove persisted data
 ```
