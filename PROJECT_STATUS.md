@@ -42,7 +42,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 ### Infrastructure
 
-- Monorepo layout (`frontend/`, `backend/`, root config)
+- Repository layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16, FastAPI backend, Next.js frontend (all with health checks)
 - Environment config (`.env.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `TEST_DATABASE_URL`)
 - Production startup skips automatic schema changes (`APP_ENV=production`)
@@ -172,7 +172,7 @@ See [README.md](./README.md#continuous-integration) for local reproduction steps
 ## Key Files
 
 ```
-finance-app/
+/
 ├── PROJECT_STATUS.md
 ├── README.md
 ├── docker-compose.yml
@@ -182,31 +182,28 @@ finance-app/
 │   ├── app/                    layout, login, register, (main) pages
 │   ├── components/             auth, budgets, dashboard, layout, transactions, ui
 │   └── lib/                    api, auth, format, types
-└── backend/
-    ├── Dockerfile
-    ├── pytest.ini
-    ├── requirements-dev.txt
-    ├── tests/                  conftest + auth/transactions/budgets/dashboard tests
-    └── app/
-        ├── main.py
-        ├── core/               config, auth, categories
-        ├── api/routes/         auth, budgets, dashboard, transactions
-        ├── services/           budget, dashboard
-        ├── db/                 session, migrate
-        ├── models/
-        └── schemas/
-
-.github/workflows/
-└── ci.yml                      GitHub Actions CI pipeline
-
----
+├── backend/
+│   ├── Dockerfile
+│   ├── pytest.ini
+│   ├── requirements-dev.txt
+│   ├── tests/                  conftest + auth/transactions/budgets/dashboard tests
+│   └── app/
+│       ├── main.py
+│       ├── core/               config, auth, categories
+│       ├── api/routes/         auth, budgets, dashboard, transactions
+│       ├── services/           budget, dashboard
+│       ├── db/                 session, migrate
+│       ├── models/
+│       └── schemas/
+└── .github/workflows/
+    └── ci.yml                  GitHub Actions CI pipeline
+```
 
 ## How to Run
 
 ### Full stack (Docker)
 
 ```bash
-cd finance-app
 cp .env.example .env   # first time only
 docker compose up -d --build
 ```
@@ -219,11 +216,10 @@ docker compose up -d --build
 
 ```bash
 # Terminal 1 — database + backend
-cd finance-app
 docker compose up -d postgres backend
 
 # Terminal 2 — frontend
-cd finance-app/frontend
+cd frontend
 npm install
 npm run dev
 ```
