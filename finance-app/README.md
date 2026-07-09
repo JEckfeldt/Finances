@@ -1,5 +1,8 @@
 # Finance App
 
+<!-- TODO: Replace OWNER/REPO with your GitHub repository (e.g. JEckfeldt/Finances) -->
+![CI](https://github.com/JEckfeldt/Finances/actions/workflows/ci.yml/badge.svg)
+
 A personal finance management platform with a clean, modern dashboard aesthetic. Users can view their financial overview, manage transactions, and track budgets.
 
 > **Project state:** See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for a full breakdown of what is and is not implemented.
@@ -190,6 +193,69 @@ TEST_DATABASE_URL=postgresql+psycopg://finance_user:finance_pass@localhost:5432/
 
 Each test starts with a clean database state. Tables are recreated before every test.
 
+## Continuous Integration
+
+Every push to `main` and every pull request targeting `main` automatically runs the CI pipeline defined in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+The workflow runs three jobs in parallel:
+
+| Job | What it validates |
+|-----|-------------------|
+| Backend Tests | Full pytest suite against an isolated PostgreSQL service |
+| Frontend Build | `npm ci`, ESLint (if configured), and production `npm run build` |
+| Docker Validation | Backend and frontend image builds plus `docker compose config` |
+
+If any job fails, the workflow fails and the push or pull request is blocked until the issue is fixed.
+
+### Reproduce CI checks locally
+
+Run these from the repository root. They mirror what GitHub Actions runs.
+
+**Backend tests** — requires PostgreSQL on port 5432:
+
+```bash
+cd finance-app/backend
+python -m venv .venv
+source .venv/bin/activate          # macOS/Linux
+# .venv\Scripts\Activate.ps1       # Windows PowerShell
+
+pip install -r requirements-dev.txt
+
+export APP_ENV=development
+export SECRET_KEY=ci-secret-key-with-at-least-32-characters
+export CORS_ORIGINS=http://localhost:3000
+export TEST_DATABASE_URL=postgresql+psycopg://finance_user:finance_pass@localhost:5432/finance_app_test
+export DATABASE_URL=$TEST_DATABASE_URL
+
+pytest
+```
+
+**Frontend build:**
+
+```bash
+cd finance-app/frontend
+npm ci
+npm run lint --if-present
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run build
+```
+
+**Docker validation:**
+
+```bash
+cd finance-app
+
+docker build -t finance-app-backend:local ./backend
+docker build --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 -t finance-app-frontend:local ./frontend
+
+POSTGRES_USER=finance_user \
+POSTGRES_PASSWORD=finance_pass \
+POSTGRES_DB=finance_app \
+SECRET_KEY=ci-secret-key-with-at-least-32-characters \
+CORS_ORIGINS=http://localhost:3000 \
+NEXT_PUBLIC_API_URL=http://localhost:8000 \
+docker compose config --quiet
+```
+
 ## Production Notes
 
 - Set `APP_ENV=production` to skip automatic table creation and startup migrations on the backend.
@@ -209,6 +275,9 @@ finance-app/
 ├── .env.example       Environment template
 ├── PROJECT_STATUS.md  Implementation status
 └── README.md
+
+.github/workflows/
+└── ci.yml             GitHub Actions CI pipeline
 ```
 
 ## Stopping Services

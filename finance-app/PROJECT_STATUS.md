@@ -34,6 +34,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M8 — Dashboard and UX refinement | Complete | Income vs expense chart, pagination, loading/error states, `/auth/me` |
 | M9 — Deployment and production readiness | Complete | Frontend Docker container, full-stack Compose, env docs, startup validation |
 | M10 — Automated backend testing | Complete | pytest suite, isolated test database, auth/transaction/budget/dashboard coverage |
+| M11 — Continuous integration | Complete | GitHub Actions CI: backend tests, frontend build, Docker validation |
 
 ---
 
@@ -47,6 +48,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Production startup skips automatic schema changes (`APP_ENV=production`)
 - Startup validation for required config and database connectivity
 - Structured logging on backend startup and shutdown
+- GitHub Actions CI (`.github/workflows/ci.yml`) on push/PR to `main`
 
 ### Frontend
 
@@ -139,13 +141,25 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+### Continuous integration (M11)
+
+Runs automatically on every push and pull request to `main`. Three parallel jobs:
+
+| Job | Validates |
+|-----|-----------|
+| Backend Tests | pytest against PostgreSQL service (Python 3.12) |
+| Frontend Build | `npm ci`, ESLint, production `npm run build` (Node 20) |
+| Docker Validation | Backend and frontend image builds; `docker compose config` |
+
+See [README.md](./README.md#continuous-integration) for local reproduction steps.
+
 ---
 
 ## What Is NOT Implemented
 
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
-- CI/CD pipeline
+- Deployment automation (CI only; no CD pipeline)
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
@@ -181,7 +195,9 @@ finance-app/
         ├── db/                 session, migrate
         ├── models/
         └── schemas/
-```
+
+.github/workflows/
+└── ci.yml                      GitHub Actions CI pipeline
 
 ---
 
@@ -226,7 +242,7 @@ npm run dev
 
 ## Suggested Next Steps
 
-1. CI/CD — wire pytest into GitHub Actions and deploy pipeline
+1. Deployment — add CD pipeline to deploy validated builds
 2. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
 3. Alembic migrations — replace manual production schema provisioning
 4. Category model — dedicated table with managed categories (optional)
