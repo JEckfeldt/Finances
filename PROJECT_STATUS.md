@@ -50,6 +50,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Startup validation for required config and database connectivity
 - Structured logging on backend startup and shutdown
 - GitHub Actions CI (`.github/workflows/ci.yml`) on push/PR to `main`
+- AWS production deployment (ECS Fargate, ALB, RDS PostgreSQL)
 
 ### Frontend
 
@@ -154,13 +155,39 @@ Runs automatically on every push and pull request to `main`. Three parallel jobs
 
 See [README.md](./README.md#continuous-integration) for local reproduction steps.
 
+### AWS deployment / production launch (M12)
+
+Deployment phase complete. Application is live in AWS production.
+
+| Item | Status |
+|------|--------|
+| Frontend on AWS ECS behind Application Load Balancer | Complete |
+| Backend on AWS ECS behind Application Load Balancer | Complete |
+| PostgreSQL on AWS RDS | Complete |
+| Docker images built and pushed | Complete |
+| ECS services running | Complete |
+| Frontend and backend communicating | Verified |
+| Database persistence | Verified |
+| Backend `APP_ENV` switched to `production` | Complete |
+| Production environment variables via ECS | Configured |
+| End-to-end production verification | Verified |
+
+Production configuration:
+
+- Backend runs with `APP_ENV=production` (no automatic schema changes on startup)
+- Environment variables (`DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, etc.) set through ECS task definitions
+- Frontend image built with production `NEXT_PUBLIC_API_URL` pointing to the backend ALB URL
+- Health checks: backend `/health`, frontend container health check
+
+See [README.md](./README.md#aws-deployment) for deployment architecture and troubleshooting.
+
 ---
 
 ## What Is NOT Implemented
 
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
-- Deployment automation (CI only; no CD pipeline)
+- Continuous deployment (CD) pipeline — manual image push and ECS deploy today
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
@@ -178,6 +205,7 @@ See [README.md](./README.md#continuous-integration) for local reproduction steps
 ├── README.md
 ├── docker-compose.yml
 ├── .env.example
+├── .env.production.example
 ├── frontend/
 │   ├── Dockerfile
 │   ├── app/                    layout, login, register, (main) pages
@@ -239,7 +267,17 @@ npm run dev
 
 ## Suggested Next Steps
 
-1. Deployment — add CD pipeline to deploy validated builds
-2. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
-3. Alembic migrations — replace manual production schema provisioning
-4. Category model — dedicated table with managed categories (optional)
+### M13 — Continuous Deployment (CD)
+
+| Goal | Description |
+|------|-------------|
+| Automate Docker image builds | Build backend and frontend images on GitHub pushes |
+| Push to Amazon ECR | Publish images to ECR automatically after successful builds |
+| Deploy to ECS | Update ECS task definitions and services with new images |
+| Deployment verification | Add post-deploy health checks and smoke tests |
+
+### Other improvements
+
+1. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
+2. Alembic migrations — replace manual production schema provisioning
+3. Category model — dedicated table with managed categories (optional)
