@@ -45,7 +45,9 @@ A personal finance management platform with a clean, modern dashboard aesthetic.
 | `SECRET_KEY` | JWT signing key. Must be changed and at least 32 characters when `APP_ENV=production` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT access token lifetime in minutes |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins |
-| `NEXT_PUBLIC_API_URL` | Browser-accessible backend URL used by the frontend |
+| `NEXT_PUBLIC_API_URL` | Browser-accessible backend URL; required at frontend build time and in `frontend/.env.local` for local dev |
+
+For production values, see [`.env.production.example`](.env.production.example).
 
 ## Running the Application
 
@@ -252,10 +254,119 @@ docker compose config --quiet
 ## Production Notes
 
 - Set `APP_ENV=production` to skip automatic table creation and startup migrations on the backend.
-- Provision the database schema separately before deploying (Alembic is recommended for future use).
+- Provision the database schema separately before deploying (see [AWS Deployment](#aws-deployment)).
 - Change `SECRET_KEY` to a strong random value of at least 32 characters.
 - Set `CORS_ORIGINS` to your deployed frontend origin(s).
-- Set `NEXT_PUBLIC_API_URL` to the browser-accessible backend URL before building the frontend Docker image.
+- Set `NEXT_PUBLIC_API_URL` to the browser-accessible backend URL **before building** the frontend Docker image.
+- See [`.env.production.example`](.env.production.example) for all production variables.
+
+### Backend production environment
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `APP_ENV` | Yes | Must be `production` in deployed environments |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+psycopg://...`) |
+| `SECRET_KEY` | Yes | JWT signing key, at least 32 characters, not the default value |
+| `CORS_ORIGINS` | Yes | Comma-separated frontend origins (e.g. `https://app.example.com`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | JWT lifetime in minutes (default: 10080) |
+
+The backend Docker image listens on `0.0.0.0:8000`. On startup it validates configuration, verifies the database connection, and logs clear errors before exiting if anything fails. The `GET /health` endpoint is public and requires no authentication.
+
+### Frontend production environment
+
+| Variable | Required | When | Description |
+|----------|----------|------|-------------|
+| `NEXT_PUBLIC_API_URL` | Yes | **Build time** | Public backend URL baked into the Next.js bundle |
+
+`NEXT_PUBLIC_API_URL` is the only source for API URL configuration. It must be set when building the frontend Docker image:
+
+```bash
+docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com -t finance-frontend ./frontend
+```
+
+For local development, set it in `frontend/.env.local` (copy from `.env.example`).
+
+## AWS Deployment
+
+Simple deployment using Docker images on **AWS App Runner** or **ECS Fargate**, with **Amazon RDS PostgreSQL**.
+
+### Required AWS resources
+
+| Resource | Purpose |
+|----------|---------|
+| Amazon RDS (PostgreSQL 16) | Application database |
+| Amazon ECR (2 repositories) | Store backend and frontend Docker images |
+| AWS App Runner or ECS Fargate (2 services) | Run backend and frontend containers |
+| (Optional) Application Load Balancer | Required for ECS; App Runner provides HTTPS automatically |
+
+### Required environment variables
+
+Copy from [`.env.production.example`](.env.production.example):
+
+| Variable | Service | Notes |
+|----------|---------|-------|
+| `APP_ENV` | Backend | Set to `production` |
+| `DATABASE_URL` | Backend | RDS endpoint with `postgresql+psycopg://` driver |
+| `SECRET_KEY` | Backend | Strong random string, 32+ characters |
+| `CORS_ORIGINS` | Backend | Your frontend HTTPS URL |
+| `NEXT_PUBLIC_API_URL` | Frontend build | Your backend HTTPS URL (build-time only) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Backend | Optional |
+
+### Deployment steps
+
+1. **Create RDS PostgreSQL**
+   - Engine: PostgreSQL 16
+   - Note the endpoint, port, database name, username, and password
+   - Allow inbound access from your backend service security group
+
+2. **Provision the database schema (one time)**
+   - The backend skips automatic schema creation when `APP_ENV=production`
+   - Run the backend once with `APP_ENV=development` pointed at RDS to create tables, or apply schema manually
+   - After schema exists, deploy with `APP_ENV=production`
+
+3. **Build and push Docker images to ECR**
+
+   ```bash
+   # Authenticate to ECR (replace account/region)
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ACCOUNT.dkr.ecr.us-east-1.amazonaws.com
+
+   # Backend
+   docker build -t finance-backend ./backend
+   docker tag finance-backend:latest ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-backend:latest
+   docker push ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-backend:latest
+
+   # Frontend — NEXT_PUBLIC_API_URL must be your deployed backend URL
+   docker build --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com -t finance-frontend ./frontend
+   docker tag finance-frontend:latest ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-frontend:latest
+   docker push ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-frontend:latest
+   ```
+
+4. **Deploy backend (App Runner or ECS Fargate)**
+   - Image: backend ECR image
+   - Port: `8000`
+   - Health check path: `/health`
+   - Environment variables: `APP_ENV`, `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`
+   - Ensure the service can reach RDS on port 5432
+
+5. **Deploy frontend (App Runner or ECS Fargate)**
+   - Image: frontend ECR image (already built with `NEXT_PUBLIC_API_URL`)
+   - Port: `3000`
+   - No runtime API URL configuration needed — it is baked in at build time
+
+6. **Verify**
+   - `GET https://api.yourdomain.com/health` returns `{"status":"ok"}`
+   - Open the frontend URL and register/login
+
+### Common failure points
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Backend container exits on startup | Invalid `DATABASE_URL` or RDS not reachable | Check security groups, RDS endpoint, credentials; read container logs |
+| Backend starts but frontend API calls fail | Wrong `NEXT_PUBLIC_API_URL` at build time | Rebuild frontend image with correct backend URL |
+| CORS errors in browser | `CORS_ORIGINS` missing frontend URL | Add exact frontend origin (including `https://`) to backend env |
+| `SECRET_KEY` validation error | Default or short secret in production | Set a unique 32+ character secret |
+| 401 on all routes except `/health` | Expected — routes require JWT auth | Register/login via frontend |
+| Database tables missing | Schema not provisioned before production deploy | Bootstrap schema once with `APP_ENV=development`, then redeploy with `production` |
 
 ## Folder Structure
 
@@ -265,6 +376,7 @@ docker compose config --quiet
 ├── README.md
 ├── docker-compose.yml
 ├── .env.example
+├── .env.production.example
 ├── frontend/          Next.js application
 ├── backend/           FastAPI application
 │   └── tests/         pytest test suite (isolated test database)

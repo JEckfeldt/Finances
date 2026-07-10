@@ -16,7 +16,17 @@ import type {
   UserCreate,
 } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+function getApiUrl(): string {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not configured. Set it in .env.local for development or pass it as a Docker build argument for production."
+    );
+  }
+  return apiUrl;
+}
+
+const API_URL = getApiUrl();
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

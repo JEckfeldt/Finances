@@ -2,7 +2,7 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 9, 2026
+Last updated: July 9, 2026 (production launch)
 
 ---
 
@@ -35,6 +35,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M9 — Deployment and production readiness | Complete | Frontend Docker container, full-stack Compose, env docs, startup validation |
 | M10 — Automated backend testing | Complete | pytest suite, isolated test database, auth/transaction/budget/dashboard coverage |
 | M11 — Continuous integration | Complete | GitHub Actions CI: backend tests, frontend build, Docker validation |
+| M12 — AWS deployment / production launch | Complete | ECS + ALB frontend/backend, RDS PostgreSQL, production env, verified live |
 
 ---
 
