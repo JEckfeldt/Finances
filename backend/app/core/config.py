@@ -3,8 +3,10 @@ import os
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
-load_dotenv()
+if os.getenv("APP_ENV", "development").lower() != "production":
+    load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +66,32 @@ def validate_settings() -> None:
         raise RuntimeError("Configuration validation failed")
 
 
+def _sanitize_database_url(url: str) -> str:
+    parsed = make_url(url)
+    host = parsed.host or "unknown-host"
+    port = f":{parsed.port}" if parsed.port else ""
+    database = parsed.database or "unknown-database"
+    username = parsed.username or "unknown-user"
+    return f"{parsed.drivername}://{username}:***@{host}{port}/{database}"
+
+
 def verify_database_connection() -> None:
+    sanitized_url = _sanitize_database_url(settings.DATABASE_URL)
+    logger.info("Verifying database connection to %s", sanitized_url)
     engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
+        logger.info("Database connection verified")
     except Exception as exc:
-        logger.error("Database connection failed: %s", exc)
-        raise RuntimeError("Database connection failed") from exc
+        logger.error(
+            "Database connection failed for %s: %s",
+            sanitized_url,
+            exc,
+        )
+        raise RuntimeError(
+            f"Database connection failed for {sanitized_url}. "
+            "Check DATABASE_URL, network access, and database credentials."
+        ) from exc
     finally:
         engine.dispose()
