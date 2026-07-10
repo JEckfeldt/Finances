@@ -1,0 +1,211 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to AWS ECS
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_BACKEND_REPOSITORY: ${{ vars.ECR_BACKEND_REPOSITORY }}
+      ECR_FRONTEND_REPOSITORY: ${{ vars.ECR_FRONTEND_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_BACKEND_SERVICE: ${{ vars.ECS_BACKEND_SERVICE }}
+      ECS_FRONTEND_SERVICE: ${{ vars.ECS_FRONTEND_SERVICE }}
+      ECS_BACKEND_CONTAINER_NAME: ${{ vars.ECS_BACKEND_CONTAINER_NAME }}
+      ECS_FRONTEND_CONTAINER_NAME: ${{ vars.ECS_FRONTEND_CONTAINER_NAME }}
+      NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+      BACKEND_HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+
+    steps:
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          missing=0
+          check() {
+            if [ -z "${!1}" ]; then
+              echo "::error::Missing required GitHub repository variable: $1"
+              missing=1
+            fi
+          }
+          check AWS_REGION
+          check ECR_BACKEND_REPOSITORY
+          check ECR_FRONTEND_REPOSITORY
+          check ECS_CLUSTER
+          check ECS_BACKEND_SERVICE
+          check ECS_FRONTEND_SERVICE
+          check ECS_BACKEND_CONTAINER_NAME
+          check ECS_FRONTEND_CONTAINER_NAME
+          check NEXT_PUBLIC_API_URL
+          check BACKEND_HEALTH_URL
+          check FRONTEND_URL
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "::error::Missing required GitHub secrets: AWS_ACCESS_KEY_ID and/or AWS_SECRET_ACCESS_KEY"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set commit SHA
+        id: commit
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Deploying commit: $SHA"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set ECR image URIs
+        id: images
+        run: |
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          SHA="${{ steps.commit.outputs.sha }}"
+          echo "backend=${REGISTRY}/${ECR_BACKEND_REPOSITORY}:${SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${REGISTRY}/${ECR_FRONTEND_REPOSITORY}:${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend image
+        run: |
+          docker build \
+            -t "${{ steps.images.outputs.backend }}" \
+            ./backend
+          docker push "${{ steps.images.outputs.backend }}"
+
+      - name: Build and push frontend image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+            -t "${{ steps.images.outputs.frontend }}" \
+            ./frontend
+          docker push "${{ steps.images.outputs.frontend }}"
+
+      - name: Download backend task definition
+        run: |
+          TASK_DEF_ARN="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_BACKEND_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEF_ARN" \
+            --query 'taskDefinition' \
+            > backend-task-definition.json
+
+      - name: Render backend task definition
+        id: backend-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: backend-task-definition.json
+          container-name: ${{ env.ECS_BACKEND_CONTAINER_NAME }}
+          image: ${{ steps.images.outputs.backend }}
+
+      - name: Deploy backend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.backend-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_BACKEND_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Verify backend health endpoint
+        run: |
+          echo "Checking ${BACKEND_HEALTH_URL}"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error "${BACKEND_HEALTH_URL}"; then
+              echo ""
+              echo "Backend health check passed"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/12 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Backend health check failed after deployment"
+          exit 1
+
+      - name: Download frontend task definition
+        run: |
+          TASK_DEF_ARN="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_FRONTEND_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEF_ARN" \
+            --query 'taskDefinition' \
+            > frontend-task-definition.json
+
+      - name: Render frontend task definition
+        id: frontend-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: frontend-task-definition.json
+          container-name: ${{ env.ECS_FRONTEND_CONTAINER_NAME }}
+          image: ${{ steps.images.outputs.frontend }}
+
+      - name: Deploy frontend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.frontend-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_FRONTEND_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Verify frontend availability
+        run: |
+          echo "Checking ${FRONTEND_URL}"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --location "${FRONTEND_URL}" > /dev/null; then
+              echo "Frontend availability check passed"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/12 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::Frontend availability check failed after deployment"
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "### Deployment successful"
+            echo ""
+            echo "- **Commit:** \`${{ steps.commit.outputs.sha }}\`"
+            echo "- **Backend image:** \`${{ steps.images.outputs.backend }}\`"
+            echo "- **Frontend image:** \`${{ steps.images.outputs.frontend }}\`"
+            echo "- **Backend health:** ${BACKEND_HEALTH_URL}"
+            echo "- **Frontend URL:** ${FRONTEND_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"

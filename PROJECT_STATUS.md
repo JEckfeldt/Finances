@@ -36,6 +36,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M10 — Automated backend testing | Complete | pytest suite, isolated test database, auth/transaction/budget/dashboard coverage |
 | M11 — Continuous integration | Complete | GitHub Actions CI: backend tests, frontend build, Docker validation |
 | M12 — AWS deployment / production launch | Complete | ECS + ALB frontend/backend, RDS PostgreSQL, production env, verified live |
+| M13 — Continuous deployment | Complete | GitHub Actions CD: ECR push, ECS deploy, health verification (requires repo secrets/vars) |
 
 ---
 
@@ -181,13 +182,27 @@ Production configuration:
 
 See [README.md](./README.md#aws-deployment) for deployment architecture and troubleshooting.
 
+### Continuous deployment (M13)
+
+Automated deployment via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Runs after CI succeeds on `main`, or manually via **Actions → Deploy → Run workflow**.
+
+| Step | Action |
+|------|--------|
+| Trigger | CI success on `main` push, or manual `workflow_dispatch` |
+| Build | Backend and frontend Docker images tagged with commit SHA |
+| Push | Images published to Amazon ECR |
+| Deploy | ECS task definitions updated; services rolled out |
+| Verify | Backend `/health` and frontend URL checked |
+
+Configuration is stored in GitHub repository secrets and variables (not in the repo). See [README.md](./README.md#continuous-deployment).
+
 ---
 
 ## What Is NOT Implemented
 
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
-- Continuous deployment (CD) pipeline — manual image push and ECS deploy today
+- Continuous deployment (CD) pipeline — workflow implemented; requires GitHub secrets/variables configuration
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
@@ -225,7 +240,8 @@ See [README.md](./README.md#aws-deployment) for deployment architecture and trou
 │       ├── models/
 │       └── schemas/
 └── .github/workflows/
-    └── ci.yml                  GitHub Actions CI pipeline
+    ├── ci.yml                  GitHub Actions CI pipeline
+    └── deploy.yml              GitHub Actions CD pipeline
 ```
 
 ## How to Run
@@ -267,17 +283,7 @@ npm run dev
 
 ## Suggested Next Steps
 
-### M13 — Continuous Deployment (CD)
-
-| Goal | Description |
-|------|-------------|
-| Automate Docker image builds | Build backend and frontend images on GitHub pushes |
-| Push to Amazon ECR | Publish images to ECR automatically after successful builds |
-| Deploy to ECS | Update ECS task definitions and services with new images |
-| Deployment verification | Add post-deploy health checks and smoke tests |
-
-### Other improvements
-
 1. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
 2. Alembic migrations — replace manual production schema provisioning
 3. Category model — dedicated table with managed categories (optional)
+4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; optional deployment approval gates

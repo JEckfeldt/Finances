@@ -368,6 +368,111 @@ Copy from [`.env.production.example`](.env.production.example):
 | 401 on all routes except `/health` | Expected — routes require JWT auth | Register/login via frontend |
 | Database tables missing | Schema not provisioned before production deploy | Bootstrap schema once with `APP_ENV=development`, then redeploy with `production` |
 
+## Continuous Deployment
+
+Pushes to `main` automatically deploy to AWS ECS after CI passes. CD is a separate workflow from CI and does not modify the existing [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+### How CD works
+
+```
+git push main
+      |
+      v
+CI workflow (ci.yml) — backend tests, frontend build, Docker validation
+      |
+      v (on success)
+Deploy workflow (deploy.yml)
+      |
+      +-- Build backend Docker image → tag with commit SHA → push to ECR
+      +-- Build frontend Docker image → tag with commit SHA → push to ECR
+      +-- Update backend ECS task definition → deploy → wait for stability
+      +-- Verify backend /health endpoint
+      +-- Update frontend ECS task definition → deploy → wait for stability
+      +-- Verify frontend URL responds
+```
+
+Image tags use the full Git commit SHA, for example:
+
+- `ACCOUNT.dkr.ecr.REGION.amazonaws.com/BACKEND_REPO:abc123def456...`
+- `ACCOUNT.dkr.ecr.REGION.amazonaws.com/FRONTEND_REPO:abc123def456...`
+
+Task definitions are read from the currently running ECS services, updated with the new image tag, registered, and deployed. No task definition names need to be hardcoded in the workflow.
+
+### Required GitHub repository secrets
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | IAM user access key for deployment |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret key for deployment |
+
+Store these under **Settings → Secrets and variables → Actions → Secrets**.
+
+> **Recommended upgrade:** Replace long-lived access keys with GitHub OIDC and an IAM role. That requires additional AWS and GitHub configuration not included in this workflow.
+
+### Required GitHub repository variables
+
+Configure these under **Settings → Secrets and variables → Actions → Variables**:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AWS_REGION` | AWS region for ECR and ECS | `us-east-1` |
+| `ECR_BACKEND_REPOSITORY` | ECR repository name for backend | `finance-backend` |
+| `ECR_FRONTEND_REPOSITORY` | ECR repository name for frontend | `finance-frontend` |
+| `ECS_CLUSTER` | ECS cluster name | `finance-cluster` |
+| `ECS_BACKEND_SERVICE` | Backend ECS service name | `finance-backend-service` |
+| `ECS_FRONTEND_SERVICE` | Frontend ECS service name | `finance-frontend-service` |
+| `ECS_BACKEND_CONTAINER_NAME` | Container name in backend task definition | from ECS console |
+| `ECS_FRONTEND_CONTAINER_NAME` | Container name in frontend task definition | from ECS console |
+| `NEXT_PUBLIC_API_URL` | Public backend URL (frontend build arg) | `https://api.yourdomain.com` |
+| `BACKEND_HEALTH_URL` | Backend health check URL | `https://api.yourdomain.com/health` |
+| `FRONTEND_URL` | Public frontend URL | `https://app.yourdomain.com` |
+
+**These values are not in the repository.** Copy them from your AWS console and ALB DNS names before the first automated deploy.
+
+### Required AWS IAM permissions
+
+The deployment IAM user or role needs at minimum:
+
+| Service | Permissions |
+|---------|-------------|
+| ECR | `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `GetDownloadUrlForLayer`, `BatchGetImage`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload` |
+| ECS | `DescribeServices`, `DescribeTaskDefinition`, `RegisterTaskDefinition`, `UpdateService` |
+| STS | `GetCallerIdentity` |
+
+Example policy scope: ECR repositories and ECS cluster/services used by this project only.
+
+### Manual trigger and retry
+
+To redeploy without a new commit:
+
+1. Open **Actions → Deploy → Run workflow**
+2. Select the `main` branch
+3. Click **Run workflow**
+
+`workflow_dispatch` skips the CI gate. Use this to retry a failed deployment or redeploy the current `main` commit. For normal releases, push to `main` and let CI trigger CD automatically.
+
+### Troubleshooting failed deployments
+
+| Failure stage | What to check |
+|---------------|---------------|
+| Validate deployment configuration | All repository variables and secrets listed above are set |
+| Build and push | Dockerfile errors; ECR repository exists; IAM has ECR push permissions |
+| Deploy to ECS | Container name matches task definition; IAM has ECS update permissions |
+| Wait for service stability | ECS service events; task logs in CloudWatch; security groups; RDS connectivity |
+| Backend health check | `BACKEND_HEALTH_URL` is correct; ALB target group healthy; backend task running |
+| Frontend availability | `FRONTEND_URL` is correct; frontend task running; `NEXT_PUBLIC_API_URL` matches backend URL |
+
+View ECS service events:
+
+```bash
+aws ecs describe-services \
+  --cluster YOUR_CLUSTER \
+  --services YOUR_SERVICE \
+  --query 'services[0].events[:5]'
+```
+
+View failed task logs in CloudWatch Logs for the service's log group.
+
 ## Folder Structure
 
 ```
@@ -381,7 +486,8 @@ Copy from [`.env.production.example`](.env.production.example):
 ├── backend/           FastAPI application
 │   └── tests/         pytest test suite (isolated test database)
 └── .github/workflows/
-    └── ci.yml         GitHub Actions CI pipeline
+    ├── ci.yml         GitHub Actions CI pipeline
+    └── deploy.yml     GitHub Actions CD pipeline (ECS deploy)
 ```
 
 ## Stopping Services
