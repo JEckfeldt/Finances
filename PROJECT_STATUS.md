@@ -2,7 +2,7 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 9, 2026 (production launch)
+Last updated: July 10, 2026 (production CI/CD operational)
 
 ---
 
@@ -36,7 +36,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M10 — Automated backend testing | Complete | pytest suite, isolated test database, auth/transaction/budget/dashboard coverage |
 | M11 — Continuous integration | Complete | GitHub Actions CI: backend tests, frontend build, Docker validation |
 | M12 — AWS deployment / production launch | Complete | ECS + ALB frontend/backend, RDS PostgreSQL, production env, verified live |
-| M13 — Continuous deployment | Complete | GitHub Actions CD: ECR push, ECS deploy, health verification (requires repo secrets/vars) |
+| M13 — Continuous deployment | Complete | GitHub Actions CD: push to `main` → ECR → ECS deploy, verified in production |
 
 ---
 
@@ -51,7 +51,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Startup validation for required config and database connectivity
 - Structured logging on backend startup and shutdown
 - GitHub Actions CI (`.github/workflows/ci.yml`) on push/PR to `main`
-- AWS production deployment (ECS Fargate, ALB, RDS PostgreSQL)
+- GitHub Actions CD (`.github/workflows/deploy.yml`) on push to `main` after CI passes
+- AWS production deployment (ECS Fargate, ALB, RDS PostgreSQL, ECR)
 
 ### Frontend
 
@@ -61,6 +62,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Full-height sidebar app shell; authenticated routes behind `AuthGuard`
 - Login and registration pages; JWT stored in `localStorage`
 - Loading skeletons and error states with retry
+- Health endpoint: `GET /health` (public, no auth; used by ALB target group)
 
 #### Pages
 
@@ -71,6 +73,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts |
 | `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination |
 | `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states |
+| `/health` | Functional | Public health check; returns `{"status":"ok"}` for ALB |
 
 ### Backend
 
@@ -144,32 +147,20 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-### Continuous integration (M11)
-
-Runs automatically on every push and pull request to `main`. Three parallel jobs:
-
-| Job | Validates |
-|-----|-----------|
-| Backend Tests | pytest against PostgreSQL service (Python 3.12) |
-| Frontend Build | `npm ci`, ESLint, production `npm run build` (Node 20) |
-| Docker Validation | Backend and frontend image builds; `docker compose config` |
-
-See [README.md](./README.md#continuous-integration) for local reproduction steps.
-
 ### AWS deployment / production launch (M12)
 
-Deployment phase complete. Application is live in AWS production.
+Application is live in AWS production. Both ECS services are running and verified.
 
 | Item | Status |
 |------|--------|
-| Frontend on AWS ECS behind Application Load Balancer | Complete |
-| Backend on AWS ECS behind Application Load Balancer | Complete |
-| PostgreSQL on AWS RDS | Complete |
-| Docker images built and pushed | Complete |
-| ECS services running | Complete |
+| Frontend on AWS ECS Fargate behind Application Load Balancer | Running |
+| Backend on AWS ECS Fargate behind Application Load Balancer | Running |
+| PostgreSQL on AWS RDS | Running |
+| Docker images in Amazon ECR | Active |
+| ECS services running | Verified |
 | Frontend and backend communicating | Verified |
 | Database persistence | Verified |
-| Backend `APP_ENV` switched to `production` | Complete |
+| Backend `APP_ENV` set to `production` | Configured |
 | Production environment variables via ECS | Configured |
 | End-to-end production verification | Verified |
 
@@ -178,13 +169,27 @@ Production configuration:
 - Backend runs with `APP_ENV=production` (no automatic schema changes on startup)
 - Environment variables (`DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, etc.) set through ECS task definitions
 - Frontend image built with production `NEXT_PUBLIC_API_URL` pointing to the backend ALB URL
-- Health checks: backend `/health`, frontend container health check
+- Health checks: backend `GET /health`; frontend `GET /health` (ALB target group)
 
 See [README.md](./README.md#aws-deployment) for deployment architecture and troubleshooting.
 
-### Continuous deployment (M13)
+### Continuous integration and deployment (M11 + M13)
 
-Automated deployment via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Runs after CI succeeds on `main`, or manually via **Actions → Deploy → Run workflow**.
+Full CI/CD pipeline is operational. Pushing to `main` triggers validation and production deployment.
+
+**CI** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+Runs on every push and pull request to `main`. Three parallel jobs:
+
+| Job | Validates |
+|-----|-----------|
+| Backend Tests | pytest against PostgreSQL service (Python 3.12) |
+| Frontend Build | `npm ci`, ESLint, production `npm run build` (Node 20) |
+| Docker Validation | Backend and frontend image builds; `docker compose config` |
+
+**CD** — [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+
+Runs automatically after CI succeeds on `main` push, or manually via **Actions → Deploy → Run workflow**.
 
 | Step | Action |
 |------|--------|
@@ -192,17 +197,20 @@ Automated deployment via [`.github/workflows/deploy.yml`](.github/workflows/depl
 | Build | Backend and frontend Docker images tagged with commit SHA |
 | Push | Images published to Amazon ECR |
 | Deploy | ECS task definitions updated; services rolled out |
-| Verify | Backend `/health` and frontend URL checked |
+| Verify | Backend `/health` and frontend availability checked |
 
-Configuration is stored in GitHub repository secrets and variables (not in the repo). See [README.md](./README.md#continuous-deployment).
+Current production state:
 
----
+- Push to `main` → CI passes → CD deploys to ECS
+- ALB target group health checks use `/health` on both frontend and backend
+- Production deployment verified working
+
+See [README.md](./README.md#continuous-integration) and [README.md](./README.md#continuous-deployment) for details.
 
 ## What Is NOT Implemented
 
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
-- Continuous deployment (CD) pipeline — workflow implemented; requires GitHub secrets/variables configuration
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
@@ -223,7 +231,7 @@ Configuration is stored in GitHub repository secrets and variables (not in the r
 ├── .env.production.example
 ├── frontend/
 │   ├── Dockerfile
-│   ├── app/                    layout, login, register, (main) pages
+│   ├── app/                    layout, login, register, (main) pages, /health
 │   ├── components/             auth, budgets, dashboard, layout, transactions, ui
 │   └── lib/                    api, auth, format, types
 ├── backend/
