@@ -2,7 +2,7 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 10, 2026 (production CI/CD operational)
+Last updated: July 10, 2026 (M14 custom 404 page)
 
 ---
 
@@ -37,6 +37,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M11 — Continuous integration | Complete | GitHub Actions CI: backend tests, frontend build, Docker validation |
 | M12 — AWS deployment / production launch | Complete | ECS + ALB frontend/backend, RDS PostgreSQL, production env, verified live |
 | M13 — Continuous deployment | Complete | GitHub Actions CD: push to `main` → ECR → ECS deploy, verified in production |
+| M14 — UX polish | Complete | Custom 404 page consistent with the application's design system |
 
 ---
 
@@ -63,6 +64,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Login and registration pages; JWT stored in `localStorage`
 - Loading skeletons and error states with retry
 - Health endpoint: `GET /health` (public, no auth; used by ALB target group)
+- Custom 404 page (`app/not-found.tsx`) matching app design system
 
 #### Pages
 
@@ -231,7 +233,7 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 ├── .env.production.example
 ├── frontend/
 │   ├── Dockerfile
-│   ├── app/                    layout, login, register, (main) pages, /health
+│   ├── app/                    layout, login, register, (main) pages, /health, not-found
 │   ├── components/             auth, budgets, dashboard, layout, transactions, ui
 │   └── lib/                    api, auth, format, types
 ├── backend/
