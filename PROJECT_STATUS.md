@@ -2,7 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 10, 2026 (M14 custom 404 page)
+Last updated: July 10, 2026
+
+**Current state:** Full-stack personal finance app live on AWS ECS Fargate with RDS PostgreSQL. GitHub Actions CI/CD deploys automatically on push to `main`. Application features (auth, transactions, budgets, dashboard) are complete through M8. Production infrastructure, automated testing, AWS deployment, continuous deployment, and UX polish (404 page, health endpoints) are all in place.
 
 ---
 
@@ -47,7 +49,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - Repository layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16, FastAPI backend, Next.js frontend (all with health checks)
-- Environment config (`.env.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `TEST_DATABASE_URL`)
+- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `TEST_DATABASE_URL`)
+- Production Dockerfiles with health checks and startup validation
 - Production startup skips automatic schema changes (`APP_ENV=production`)
 - Startup validation for required config and database connectivity
 - Structured logging on backend startup and shutdown
@@ -76,6 +79,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination |
 | `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states |
 | `/health` | Functional | Public health check; returns `{"status":"ok"}` for ALB |
+| `/*` (unknown routes) | Functional | Custom 404 page via `app/not-found.tsx` |
 
 ### Backend
 
@@ -124,6 +128,12 @@ Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `se
 - Dashboard date selector removed; balance is all-time, income/expense are current month
 - Dashboard widgets limited to 5 recent transactions and 5 highest-usage budgets
 - Transaction edit dialog Select controlled-state fix
+
+### UX polish (M14)
+
+- Custom 404 page (`app/not-found.tsx`) with centered layout, app branding, and navigation to dashboard/login
+- Frontend `GET /health` endpoint added for ALB target group health checks
+- ALB health checks configured to use `/health` on frontend and backend
 
 ### Automated tests (M10)
 
@@ -208,6 +218,8 @@ Current production state:
 - Production deployment verified working
 
 See [README.md](./README.md#continuous-integration) and [README.md](./README.md#continuous-deployment) for details.
+
+---
 
 ## What Is NOT Implemented
 
@@ -296,4 +308,5 @@ npm run dev
 1. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
 2. Alembic migrations — replace manual production schema provisioning
 3. Category model — dedicated table with managed categories (optional)
-4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; optional deployment approval gates
+4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+5. Further UX polish — loading transitions, empty-state illustrations, error page variants
