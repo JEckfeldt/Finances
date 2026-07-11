@@ -28,6 +28,11 @@ function getApiUrl(): string {
 
 const API_URL = getApiUrl();
 
+const defaultFetchOptions: RequestInit = {
+  credentials: "include",
+  cache: "no-store",
+};
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let error = await response.text();
@@ -60,9 +65,9 @@ async function authFetch(
   }
 
   return fetch(`${API_URL}${path}`, {
+    ...defaultFetchOptions,
     ...options,
     headers,
-    cache: "no-store",
   });
 }
 
@@ -79,6 +84,7 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 
 export async function register(data: UserCreate): Promise<User> {
   const response = await fetch(`${API_URL}/auth/register`, {
+    ...defaultFetchOptions,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -88,6 +94,7 @@ export async function register(data: UserCreate): Promise<User> {
 
 export async function login(data: LoginRequest): Promise<TokenResponse> {
   const response = await fetch(`${API_URL}/auth/login`, {
+    ...defaultFetchOptions,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

@@ -40,6 +40,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Finance App API (%s)", settings.APP_ENV)
     validate_settings()
     verify_database_connection()
+    logger.info(
+        "CORS origins: %s | Cookie secure: %s | Cookie SameSite: %s",
+        ", ".join(settings.CORS_ORIGINS),
+        settings.COOKIE_SECURE,
+        settings.COOKIE_SAMESITE,
+    )
     _initialize_database_schema()
     logger.info("Application startup complete")
     yield

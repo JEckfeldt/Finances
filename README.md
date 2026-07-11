@@ -44,8 +44,11 @@ A personal finance management platform with a clean, modern dashboard aesthetic.
 | `TEST_DATABASE_URL` | Optional. Separate PostgreSQL database for backend tests (defaults to `finance_app_test`) |
 | `SECRET_KEY` | JWT signing key. Must be changed and at least 32 characters when `APP_ENV=production` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT access token lifetime in minutes |
-| `CORS_ORIGINS` | Comma-separated allowed frontend origins |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins (use `http://` locally, `https://` in production) |
 | `NEXT_PUBLIC_API_URL` | Browser-accessible backend URL; required at frontend build time and in `frontend/.env.local` for local dev |
+| `COOKIE_SECURE` | `false` in development, `true` in production (prepares future httpOnly cookies) |
+| `COOKIE_SAMESITE` | Cookie SameSite policy (`lax`, `strict`, or `none`) |
+| `COOKIE_HTTPONLY` | Default `true`; used when cookie-based auth is implemented |
 
 For production values, see [`.env.production.example`](.env.production.example).
 
@@ -256,9 +259,28 @@ docker compose config --quiet
 - Set `APP_ENV=production` to skip automatic table creation and startup migrations on the backend.
 - Provision the database schema separately before deploying (see [AWS Deployment](#aws-deployment)).
 - Change `SECRET_KEY` to a strong random value of at least 32 characters.
-- Set `CORS_ORIGINS` to your deployed frontend origin(s).
-- Set `NEXT_PUBLIC_API_URL` to the browser-accessible backend URL **before building** the frontend Docker image.
+- Set `CORS_ORIGINS` to your deployed frontend HTTPS origin(s).
+- Set `NEXT_PUBLIC_API_URL` to the browser-accessible backend **HTTPS** URL **before building** the frontend Docker image.
 - See [`.env.production.example`](.env.production.example) for all production variables.
+- The application is **HTTPS-ready at the code level**. Production URLs must use `https://`. Local development continues to use HTTP.
+
+### HTTPS readiness
+
+The codebase is prepared for HTTPS termination at the ALB:
+
+- Production `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` must use `https://` domains
+- Backend CORS allows credentialed requests (`allow_credentials=True`) for future cookie-based auth
+- Cookie security flags (`COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`) are environment-driven
+- Frontend API client sends `credentials: "include"` on all requests
+- JWT tokens still use `localStorage` today; httpOnly cookie migration is planned during auth hardening
+
+#### Current authentication assumptions (to be addressed in auth hardening)
+
+| Area | Current behavior | Planned change |
+|------|------------------|----------------|
+| Token storage | `localStorage` via `lib/auth.ts` | httpOnly Secure cookies set by backend |
+| Authorization header | `Bearer` token on each request | Cookie-based session or dual support during migration |
+| Token refresh | Not implemented | Refresh token rotation |
 
 ### Backend production environment
 
@@ -267,7 +289,10 @@ docker compose config --quiet
 | `APP_ENV` | Yes | Must be `production` in deployed environments |
 | `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+psycopg://...`) |
 | `SECRET_KEY` | Yes | JWT signing key, at least 32 characters, not the default value |
-| `CORS_ORIGINS` | Yes | Comma-separated frontend origins (e.g. `https://app.example.com`) |
+| `CORS_ORIGINS` | Yes | Comma-separated frontend HTTPS origins (e.g. `https://app.example.com`) |
+| `COOKIE_SECURE` | Yes (prod) | Must be `true` in production |
+| `COOKIE_SAMESITE` | No | `lax` (default), `strict`, or `none` |
+| `COOKIE_HTTPONLY` | No | Default `true`; used when cookie auth is implemented |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | JWT lifetime in minutes (default: 10080) |
 
 The backend Docker image listens on `0.0.0.0:8000`. On startup it validates configuration, verifies the database connection, and logs clear errors before exiting if anything fails. The `GET /health` endpoint is public and requires no authentication.
@@ -310,6 +335,8 @@ Copy from [`.env.production.example`](.env.production.example):
 | `SECRET_KEY` | Backend | Strong random string, 32+ characters |
 | `CORS_ORIGINS` | Backend | Your frontend HTTPS URL |
 | `NEXT_PUBLIC_API_URL` | Frontend build | Your backend HTTPS URL (build-time only) |
+| `COOKIE_SECURE` | Backend | `true` in production |
+| `COOKIE_SAMESITE` | Backend | `lax` recommended |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Backend | Optional |
 
 ### Deployment steps
@@ -367,6 +394,29 @@ Copy from [`.env.production.example`](.env.production.example):
 | `SECRET_KEY` validation error | Default or short secret in production | Set a unique 32+ character secret |
 | 401 on all routes except `/health` | Expected — routes require JWT auth | Register/login via frontend |
 | Database tables missing | Schema not provisioned before production deploy | Bootstrap schema once with `APP_ENV=development`, then redeploy with `production` |
+
+## HTTPS Deployment Checklist
+
+Complete these manual AWS steps to enable HTTPS. The application code is already prepared.
+
+1. **Configure a production domain name** for frontend and backend (e.g. `app.example.com`, `api.example.com`).
+2. **Request an ACM SSL/TLS certificate** for the domain(s) in the same AWS region as the ALB.
+3. **Complete ACM DNS validation** by adding the required CNAME records.
+4. **Add an HTTPS listener (port 443)** to the Application Load Balancer.
+5. **Attach the ACM certificate** to the HTTPS listener.
+6. **Configure the HTTP (port 80) listener** to redirect all traffic to HTTPS.
+7. **Configure DNS** (Route 53 or external provider) to point the domain(s) to the ALB.
+8. **Update ECS environment variables:**
+   - `NEXT_PUBLIC_API_URL` — rebuild frontend image with `https://` backend URL
+   - `CORS_ORIGINS` — set to `https://` frontend domain
+   - `COOKIE_SECURE=true` on backend
+9. **Redeploy ECS services** (push to `main` or run the Deploy workflow).
+10. **Verify:**
+    - `https://` frontend and backend load successfully
+    - HTTP redirects to HTTPS
+    - Frontend communicates with backend (register/login, dashboard)
+    - No CORS errors in browser console
+    - ALB target groups report healthy
 
 ## Continuous Deployment
 

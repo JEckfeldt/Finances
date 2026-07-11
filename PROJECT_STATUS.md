@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 10, 2026
+Last updated: July 11, 2026
 
-**Current state:** Full-stack personal finance app live on AWS ECS Fargate with RDS PostgreSQL. GitHub Actions CI/CD deploys automatically on push to `main`. Application features (auth, transactions, budgets, dashboard) are complete through M8. Production infrastructure, automated testing, AWS deployment, continuous deployment, and UX polish (404 page, health endpoints) are all in place.
+**Current state:** Full-stack personal finance app live on AWS ECS Fargate with RDS PostgreSQL. GitHub Actions CI/CD deploys automatically on push to `main`. Application is HTTPS-ready at the code level; ALB HTTPS termination requires manual AWS configuration (see README HTTPS Deployment Checklist).
 
 ---
 
@@ -49,7 +49,10 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - Repository layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16, FastAPI backend, Next.js frontend (all with health checks)
-- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `TEST_DATABASE_URL`)
+- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`, `TEST_DATABASE_URL`)
+- HTTPS-ready configuration: production URLs require `https://`; local development uses HTTP
+- CORS credentialed requests enabled (`allow_credentials=True`) for future cookie-based auth
+- Cookie security flags environment-driven (`backend/app/core/cookies.py`)
 - Production Dockerfiles with health checks and startup validation
 - Production startup skips automatic schema changes (`APP_ENV=production`)
 - Startup validation for required config and database connectivity
@@ -64,7 +67,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - shadcn/ui, React Hook Form + Zod, Lucide React, Recharts
 - Off-white / soft-green theme; Geist Sans via `next/font`
 - Full-height sidebar app shell; authenticated routes behind `AuthGuard`
-- Login and registration pages; JWT stored in `localStorage`
+- Login and registration pages; JWT stored in `localStorage` (httpOnly cookie migration planned)
+- API client sends `credentials: "include"` on all requests
 - Loading skeletons and error states with retry
 - Health endpoint: `GET /health` (public, no auth; used by ALB target group)
 - Custom 404 page (`app/not-found.tsx`) matching app design system
@@ -133,7 +137,23 @@ Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `se
 
 - Custom 404 page (`app/not-found.tsx`) with centered layout, app branding, and navigation to dashboard/login
 - Frontend `GET /health` endpoint added for ALB target group health checks
-- ALB health checks configured to use `/health` on frontend and backend
+- ALB target group health checks configured to use `/health` on frontend and backend
+
+### HTTPS readiness
+
+Application code is prepared for HTTPS. Remaining work is manual AWS configuration.
+
+| Item | Status |
+|------|--------|
+| Production env templates use `https://` URLs | Ready |
+| Backend validates HTTPS CORS origins in production | Ready |
+| Cookie security flags (`COOKIE_SECURE`, `COOKIE_SAMESITE`) | Configured |
+| Frontend `credentials: "include"` on API requests | Ready |
+| ALB HTTPS listener + ACM certificate | Pending (manual AWS) |
+| HTTP → HTTPS redirect on ALB | Pending (manual AWS) |
+| JWT httpOnly cookie storage | Planned (auth hardening) |
+
+See [README.md](./README.md#https-deployment-checklist) for the full HTTPS deployment checklist.
 
 ### Automated tests (M10)
 
@@ -226,6 +246,7 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
+- ALB HTTPS termination (ACM certificate, HTTPS listener, HTTP redirect) — manual AWS steps documented
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
 - Dedicated category database table
@@ -255,7 +276,7 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 │   ├── tests/                  conftest + auth/transactions/budgets/dashboard tests
 │   └── app/
 │       ├── main.py
-│       ├── core/               config, auth, categories
+│       ├── core/               config, auth, categories, cookies
 │       ├── api/routes/         auth, budgets, dashboard, transactions
 │       ├── services/           budget, dashboard
 │       ├── db/                 session, migrate
@@ -305,8 +326,8 @@ npm run dev
 
 ## Suggested Next Steps
 
-1. Auth hardening — token refresh, httpOnly cookies, Next.js middleware
-2. Alembic migrations — replace manual production schema provisioning
-3. Category model — dedicated table with managed categories (optional)
-4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
-5. Further UX polish — loading transitions, empty-state illustrations, error page variants
+1. Enable HTTPS on ALB — ACM certificate, HTTPS listener, HTTP redirect (see README checklist)
+2. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
+3. Alembic migrations — replace manual production schema provisioning
+4. Category model — dedicated table with managed categories (optional)
+5. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates

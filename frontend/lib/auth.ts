@@ -1,6 +1,10 @@
 const TOKEN_KEY = "finance_auth_token";
 const EMAIL_KEY = "finance_auth_email";
 
+/**
+ * Temporary client-side auth storage.
+ * Auth hardening will migrate tokens to httpOnly Secure cookies set by the backend.
+ */
 export function setAuth(token: string, email: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(EMAIL_KEY, email);

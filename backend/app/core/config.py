@@ -11,6 +11,19 @@ if os.getenv("APP_ENV", "development").lower() != "production":
 logger = logging.getLogger(__name__)
 
 DEFAULT_SECRET_KEY = "change-me-in-production"
+DEFAULT_CORS_ORIGINS = "http://localhost:3000"
+VALID_COOKIE_SAMESITE_VALUES = {"lax", "strict", "none"}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _default_cookie_secure() -> bool:
+    return os.getenv("APP_ENV", "development").lower() == "production"
 
 
 class Settings:
@@ -26,9 +39,12 @@ class Settings:
     )
     CORS_ORIGINS: list[str] = [
         origin.strip()
-        for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+        for origin in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
         if origin.strip()
     ]
+    COOKIE_SECURE: bool = _env_bool("COOKIE_SECURE", _default_cookie_secure())
+    COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax").strip().lower()
+    COOKIE_HTTPONLY: bool = _env_bool("COOKIE_HTTPONLY", True)
 
     @property
     def is_production(self) -> bool:
@@ -59,6 +75,21 @@ def validate_settings() -> None:
 
     if not settings.CORS_ORIGINS:
         errors.append("CORS_ORIGINS must include at least one origin")
+
+    if settings.COOKIE_SAMESITE not in VALID_COOKIE_SAMESITE_VALUES:
+        errors.append(
+            "COOKIE_SAMESITE must be one of: lax, strict, none"
+        )
+
+    if settings.is_production:
+        for origin in settings.CORS_ORIGINS:
+            if not origin.startswith("https://"):
+                errors.append(
+                    f"CORS_ORIGINS must use HTTPS in production (got: {origin})"
+                )
+
+        if not settings.COOKIE_SECURE:
+            errors.append("COOKIE_SECURE must be true in production")
 
     if errors:
         for error in errors:
