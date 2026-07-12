@@ -28,6 +28,7 @@ interface IncomeExpenseChartProps {
 
 export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
   const isNarrow = useMediaQuery("(max-width: 639px)");
+  const isCompact = useMediaQuery("(max-width: 1023px)");
   const chartData = data.map((item) => ({
     month: item.month,
     income: parseFloat(item.income),
@@ -56,8 +57,8 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
                 margin={{
                   top: 8,
                   right: isNarrow ? 4 : 8,
-                  left: isNarrow ? 0 : 0,
-                  bottom: isNarrow ? 4 : 0,
+                  left: 0,
+                  bottom: isCompact ? 28 : 8,
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -66,10 +67,10 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
                   tick={{ fill: "var(--muted-foreground)", fontSize: isNarrow ? 10 : 12 }}
                   axisLine={false}
                   tickLine={false}
-                  interval={isNarrow ? "preserveStartEnd" : 0}
+                  interval={isCompact ? "preserveStartEnd" : 0}
                 />
                 <YAxis
-                  width={isNarrow ? 36 : 44}
+                  width={isCompact ? 36 : 44}
                   tick={{ fill: "var(--muted-foreground)", fontSize: isNarrow ? 10 : 12 }}
                   axisLine={false}
                   tickLine={false}

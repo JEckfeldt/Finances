@@ -70,7 +70,7 @@ export function SidebarNavContent({ onNavigate, onClose }: SidebarNavContentProp
             size="icon-sm"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="shrink-0"
+            className="size-9 shrink-0 sm:size-7"
           >
             <X className="size-4" />
           </Button>
@@ -86,7 +86,7 @@ export function SidebarNavContent({ onNavigate, onClose }: SidebarNavContentProp
               href={href}
               onClick={() => onNavigate?.()}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -107,7 +107,10 @@ export function SidebarNavContent({ onNavigate, onClose }: SidebarNavContentProp
         )}
         <Button
           variant="outline"
-          className="w-full justify-start gap-2"
+          className={cn(
+            "w-full justify-start gap-2",
+            onClose ? "h-10" : "h-8"
+          )}
           onClick={handleLogout}
         >
           <LogOut className="size-4" />

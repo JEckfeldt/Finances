@@ -27,6 +27,7 @@ interface SpendingTrendsChartProps {
 
 export function SpendingTrendsChart({ data }: SpendingTrendsChartProps) {
   const isNarrow = useMediaQuery("(max-width: 639px)");
+  const isCompact = useMediaQuery("(max-width: 1023px)");
   const chartData = data.map((item) => ({
     month: item.month,
     expenses: parseFloat(item.total_expenses),
@@ -63,10 +64,10 @@ export function SpendingTrendsChart({ data }: SpendingTrendsChartProps) {
                   tick={{ fill: "var(--muted-foreground)", fontSize: isNarrow ? 10 : 12 }}
                   axisLine={false}
                   tickLine={false}
-                  interval={isNarrow ? "preserveStartEnd" : 0}
+                  interval={isCompact ? "preserveStartEnd" : 0}
                 />
                 <YAxis
-                  width={isNarrow ? 36 : 44}
+                  width={isCompact ? 36 : 44}
                   tick={{ fill: "var(--muted-foreground)", fontSize: isNarrow ? 10 : 12 }}
                   axisLine={false}
                   tickLine={false}

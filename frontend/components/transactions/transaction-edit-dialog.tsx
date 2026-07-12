@@ -106,7 +106,7 @@ export function TransactionEditDialog({
                 <Label htmlFor="edit-description">Description</Label>
                 <Input
                   id="edit-description"
-                  className="w-full"
+                  className="h-10 w-full sm:h-8"
                   {...register("description")}
                 />
                 {errors.description && (
@@ -120,7 +120,7 @@ export function TransactionEditDialog({
                 <Label htmlFor="edit-amount">Amount</Label>
                 <Input
                   id="edit-amount"
-                  className="w-full"
+                  className="h-10 w-full sm:h-8"
                   type="number"
                   step="0.01"
                   min="0"
@@ -141,7 +141,7 @@ export function TransactionEditDialog({
                     setValue("type", value as "income" | "expense")
                   }
                 >
-                  <SelectTrigger id="edit-transaction-type" className="w-full">
+                  <SelectTrigger id="edit-transaction-type" className="h-10 w-full sm:h-8">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -155,7 +155,7 @@ export function TransactionEditDialog({
                 <Label htmlFor="edit-transaction-date">Date</Label>
                 <Input
                   id="edit-transaction-date"
-                  className="w-full"
+                  className="h-10 w-full sm:h-8"
                   type="date"
                   {...register("transaction_date")}
                 />
@@ -170,7 +170,7 @@ export function TransactionEditDialog({
                 <Label htmlFor="edit-category">Category</Label>
                 <Input
                   id="edit-category"
-                  className="w-full"
+                  className="h-10 w-full sm:h-8"
                   placeholder="e.g. Food, Salary, Rent"
                   {...register("category")}
                 />
@@ -186,12 +186,16 @@ export function TransactionEditDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="w-full sm:w-auto"
+                className="h-10 w-full sm:h-8 sm:w-auto"
                 onClick={onClose}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                className="h-10 w-full sm:h-8 sm:w-auto"
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>

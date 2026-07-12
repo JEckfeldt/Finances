@@ -22,7 +22,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-background px-4">
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
     );

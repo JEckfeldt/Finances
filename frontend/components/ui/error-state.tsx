@@ -7,10 +7,14 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
+    <div className="min-w-0 rounded-lg border border-dashed border-destructive/30 bg-destructive/5 px-4 py-8 text-center sm:px-6 sm:py-10">
       <p className="text-sm font-medium text-destructive">{message}</p>
       {onRetry && (
-        <Button variant="outline" className="mt-4" onClick={onRetry}>
+        <Button
+          variant="outline"
+          className="mt-4 h-10 w-full sm:h-8 sm:w-auto"
+          onClick={onRetry}
+        >
           Try again
         </Button>
       )}

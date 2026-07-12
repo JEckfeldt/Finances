@@ -134,9 +134,9 @@ export function BudgetProgressCard({ budgets }: BudgetProgressCardProps) {
                       {formatCurrency(budget.limit_amount)}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-muted">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`h-2 rounded-full transition-all ${
+                      className={`h-full rounded-full transition-all ${
                         isOverBudget ? "bg-destructive/70" : "bg-primary/40"
                       }`}
                       style={{ width: `${percentage}%` }}

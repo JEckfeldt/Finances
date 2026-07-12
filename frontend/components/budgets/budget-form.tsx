@@ -66,7 +66,7 @@ export function BudgetForm({ onSuccess }: BudgetFormProps) {
               <Label htmlFor="category">Category</Label>
               <Input
                 id="category"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 placeholder="e.g. Groceries, Transportation"
                 {...register("category")}
               />
@@ -81,7 +81,7 @@ export function BudgetForm({ onSuccess }: BudgetFormProps) {
               <Label htmlFor="limit_amount">Monthly Limit</Label>
               <Input
                 id="limit_amount"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 type="number"
                 step="0.01"
                 min="0"

@@ -93,7 +93,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 placeholder="e.g. Grocery shopping"
                 {...register("description")}
               />
@@ -108,7 +108,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 type="number"
                 step="0.01"
                 min="0"
@@ -130,7 +130,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
                   setValue("type", value as "income" | "expense")
                 }
               >
-                <SelectTrigger id="transaction-type" className="w-full">
+                <SelectTrigger id="transaction-type" className="h-10 w-full sm:h-8">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -149,7 +149,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               <Label htmlFor="transaction-date">Date</Label>
               <Input
                 id="transaction-date"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 type="date"
                 {...register("transaction_date")}
               />
@@ -164,7 +164,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               <Label htmlFor="category">Category</Label>
               <Input
                 id="category"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 placeholder="e.g. Food, Salary, Rent"
                 {...register("category")}
               />
@@ -176,7 +176,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
             </div>
           </div>
 
-          <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="h-10 w-full sm:h-8 sm:w-auto"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Adding..." : "Add Transaction"}
           </Button>
         </form>

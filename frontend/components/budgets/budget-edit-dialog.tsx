@@ -85,7 +85,7 @@ export function BudgetEditDialog({
               <Label htmlFor="edit-category">Category</Label>
               <Input
                 id="edit-category"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 {...register("category")}
               />
               {errors.category && (
@@ -99,7 +99,7 @@ export function BudgetEditDialog({
               <Label htmlFor="edit-limit">Monthly Limit</Label>
               <Input
                 id="edit-limit"
-                className="w-full"
+                className="h-10 w-full sm:h-8"
                 type="number"
                 step="0.01"
                 min="0"

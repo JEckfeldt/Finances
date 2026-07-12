@@ -45,6 +45,7 @@ function TransactionActions({
       <Button
         variant="ghost"
         size="icon-sm"
+        className="size-9 sm:size-7"
         onClick={() => onEdit(transaction)}
         aria-label={`Edit ${transaction.description}`}
       >
@@ -53,6 +54,7 @@ function TransactionActions({
       <Button
         variant="ghost"
         size="icon-sm"
+        className="size-9 sm:size-7"
         onClick={() => onDelete(transaction)}
         disabled={deletingId === transaction.id}
         aria-label={`Delete ${transaction.description}`}
@@ -100,12 +102,12 @@ function TransactionAmount({
 function LoadingSkeletons() {
   return (
     <>
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 lg:hidden">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-28 w-full" />
         ))}
       </div>
-      <div className="hidden space-y-3 md:block">
+      <div className="hidden space-y-3 lg:block">
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-12 w-full" />
         ))}
@@ -144,7 +146,7 @@ function TransactionCards({
   deletingId?: number | null;
 }) {
   return (
-    <div className="space-y-3 md:hidden">
+    <div className="space-y-3 lg:hidden">
       {transactions.map((transaction) => (
         <div
           key={transaction.id}
@@ -197,7 +199,7 @@ function TransactionTable({
   deletingId?: number | null;
 }) {
   return (
-    <div className="hidden min-w-0 md:block">
+    <div className="hidden min-w-0 lg:block">
       <Table>
         <TableHeader>
           <TableRow>
@@ -274,7 +276,7 @@ export function TransactionList({
         description="Try adjusting your search or filters to find what you are looking for."
         action={
           isFiltered && onClearFilters ? (
-            <Button variant="outline" className="mt-4 w-full sm:w-auto" onClick={onClearFilters}>
+            <Button variant="outline" className="mt-4 h-10 w-full sm:h-8 sm:w-auto" onClick={onClearFilters}>
               Clear filters
             </Button>
           ) : undefined

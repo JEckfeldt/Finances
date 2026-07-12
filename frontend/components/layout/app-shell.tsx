@@ -63,6 +63,7 @@ export function AppShell({ children }: AppShellProps) {
           <Button
             variant="outline"
             size="icon-sm"
+            className="size-9 shrink-0 sm:size-7"
             onClick={() => setMobileNavOpen(true)}
             aria-label="Open navigation menu"
           >

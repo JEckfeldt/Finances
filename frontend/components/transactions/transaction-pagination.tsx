@@ -28,7 +28,7 @@ export function TransactionPagination({
         <Button
           variant="outline"
           size="sm"
-          className="w-full sm:w-auto"
+          className="h-10 w-full sm:h-7 sm:w-auto"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
@@ -37,7 +37,7 @@ export function TransactionPagination({
         <Button
           variant="outline"
           size="sm"
-          className="w-full sm:w-auto"
+          className="h-10 w-full sm:h-7 sm:w-auto"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >

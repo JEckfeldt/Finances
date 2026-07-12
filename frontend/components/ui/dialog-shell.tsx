@@ -7,7 +7,7 @@ interface DialogShellProps {
 
 export function DialogShell({ children, className }: DialogShellProps) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-foreground/20 p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 overflow-x-hidden overflow-y-auto bg-foreground/20 p-4 sm:p-6">
       <div
         className={cn(
           "flex min-h-full items-start justify-center py-4 sm:items-center sm:py-0",
