@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DialogShell } from "@/components/ui/dialog-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateBudget } from "@/lib/api";
@@ -72,8 +73,8 @@ export function BudgetEditDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 px-4">
-      <Card className="w-full max-w-md">
+    <DialogShell>
+      <Card className="max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-md overflow-y-auto">
         <CardHeader>
           <CardTitle>Edit Budget</CardTitle>
           <CardDescription>Update category or monthly limit</CardDescription>
@@ -106,7 +107,7 @@ export function BudgetEditDialog({
               )}
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
@@ -117,6 +118,6 @@ export function BudgetEditDialog({
           </form>
         </CardContent>
       </Card>
-    </div>
+    </DialogShell>
   );
 }

@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DialogShell } from "@/components/ui/dialog-shell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -92,8 +93,8 @@ export function TransactionEditDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 px-4">
-      <Card className="w-full max-w-lg">
+    <DialogShell>
+      <Card className="max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-lg overflow-y-auto">
         <CardHeader>
           <CardTitle>Edit Transaction</CardTitle>
           <CardDescription>Update transaction details</CardDescription>
@@ -174,7 +175,7 @@ export function TransactionEditDialog({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
@@ -185,6 +186,6 @@ export function TransactionEditDialog({
           </form>
         </CardContent>
       </Card>
-    </div>
+    </DialogShell>
   );
 }

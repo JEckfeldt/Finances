@@ -44,7 +44,7 @@ export function SpendingTrendsChart({ data }: SpendingTrendsChartProps) {
             </p>
           </div>
         ) : (
-          <div className="h-64 w-full">
+          <div className="h-64 min-w-0 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />

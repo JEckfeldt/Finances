@@ -125,8 +125,8 @@ export function BudgetProgressCard({ budgets }: BudgetProgressCardProps) {
 
               return (
                 <div key={budget.category} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{budget.category}</span>
+                  <div className="flex justify-between gap-2 text-sm">
+                    <span className="truncate font-medium">{budget.category}</span>
                     <span className="text-muted-foreground">
                       {formatCurrency(budget.spent)} /{" "}
                       {formatCurrency(budget.limit_amount)}
@@ -176,11 +176,13 @@ export function RecentTransactionsCard({
             {transactions.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{transaction.description}</p>
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 space-y-1">
+                  <p className="truncate text-sm font-medium">
+                    {transaction.description}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       variant={
                         transaction.type === "income" ? "default" : "secondary"
@@ -199,7 +201,7 @@ export function RecentTransactionsCard({
                   </div>
                 </div>
                 <span
-                  className={`text-sm font-medium ${
+                  className={`shrink-0 text-sm font-medium ${
                     transaction.type === "income"
                       ? "text-primary"
                       : "text-foreground"

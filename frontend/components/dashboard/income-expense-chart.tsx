@@ -47,7 +47,7 @@ export function IncomeExpenseChart({ data }: IncomeExpenseChartProps) {
             <p className="text-sm text-muted-foreground">No data for this period</p>
           </div>
         ) : (
-          <div className="h-72 w-full">
+          <div className="h-72 min-w-0 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />

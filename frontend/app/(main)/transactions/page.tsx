@@ -140,7 +140,7 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Transactions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           View and manage your financial transactions
         </p>

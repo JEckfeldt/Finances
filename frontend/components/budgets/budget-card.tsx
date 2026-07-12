@@ -38,13 +38,13 @@ export function BudgetCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Category
           </p>
-          <CardTitle className="mt-1">{budget.category}</CardTitle>
+          <CardTitle className="mt-1 truncate">{budget.category}</CardTitle>
         </div>
-        <div className="flex gap-1">
+        <div className="flex shrink-0 gap-1">
           <Button
             variant="ghost"
             size="icon-sm"

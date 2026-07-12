@@ -51,7 +51,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Overview of your financial health
           </p>
@@ -65,7 +65,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Overview of your financial health
           </p>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Overview of your financial health
         </p>
