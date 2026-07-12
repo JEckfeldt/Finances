@@ -36,9 +36,9 @@ export function BudgetCard({
   const isOverBudget = parseFloat(budget.remaining) < 0;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="min-w-0">
+    <Card className="min-w-0">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Category
           </p>
@@ -48,6 +48,7 @@ export function BudgetCard({
           <Button
             variant="ghost"
             size="icon-sm"
+            className="size-9 sm:size-7"
             onClick={() => onEdit(budget)}
             aria-label={`Edit ${budget.category} budget`}
           >
@@ -56,6 +57,7 @@ export function BudgetCard({
           <Button
             variant="ghost"
             size="icon-sm"
+            className="size-9 sm:size-7"
             onClick={() => onDelete(budget)}
             disabled={isDeleting}
             aria-label={`Delete ${budget.category} budget`}
@@ -64,22 +66,24 @@ export function BudgetCard({
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
+      <CardContent className="min-w-0">
+        <div className="space-y-2.5 sm:space-y-3">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-muted-foreground">Budget</span>
-            <span className="font-medium">
+            <span className="shrink-0 font-medium">
               {formatCurrency(budget.limit_amount)}
             </span>
           </div>
-          <div className="flex justify-between text-sm">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-muted-foreground">Spent</span>
-            <span className="font-medium">{formatCurrency(budget.spent)}</span>
+            <span className="shrink-0 font-medium">
+              {formatCurrency(budget.spent)}
+            </span>
           </div>
-          <div className="flex justify-between text-sm">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-muted-foreground">Remaining</span>
             <span
-              className={`font-medium ${
+              className={`shrink-0 font-medium ${
                 isOverBudget ? "text-destructive" : "text-primary"
               }`}
             >
@@ -88,13 +92,13 @@ export function BudgetCard({
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>Progress</span>
-              <span>{budget.percentage.toFixed(0)}%</span>
+              <span className="shrink-0">{budget.percentage.toFixed(0)}%</span>
             </div>
-            <div className="h-2 rounded-full bg-muted">
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted sm:h-2">
               <div
-                className={`h-2 rounded-full transition-all ${
+                className={`h-full rounded-full transition-all ${
                   isOverBudget ? "bg-destructive/70" : "bg-primary/40"
                 }`}
                 style={{ width: `${percentage}%` }}

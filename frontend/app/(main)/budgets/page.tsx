@@ -35,9 +35,9 @@ function mergeBudgetsWithProgress(
 
 function BudgetSkeletonGrid() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <Skeleton key={index} className="h-56" />
+        <Skeleton key={index} className="h-52 sm:h-56" />
       ))}
     </div>
   );
@@ -90,7 +90,7 @@ export default function BudgetsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-6 lg:space-y-8">
       <div>
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Budgets</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -109,14 +109,14 @@ export default function BudgetsPage() {
       {isLoading ? (
         <BudgetSkeletonGrid />
       ) : budgets.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center sm:px-6 sm:py-10">
           <p className="text-sm font-medium text-foreground">No budgets yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Add your first budget above to start tracking spending limits.
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 [&>*]:min-w-0">
           {budgets.map((budget) => (
             <BudgetCard
               key={budget.id}

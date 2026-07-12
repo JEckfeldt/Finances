@@ -39,21 +39,23 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-background px-4 py-6 sm:py-8">
+      <div className="w-full min-w-0 max-w-md space-y-6 sm:space-y-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10">
             <Wallet className="size-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Finance Tracker</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+              Finance Tracker
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Create your account
             </p>
           </div>
         </div>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Get started</CardTitle>
             <CardDescription>
@@ -62,10 +64,11 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  className="h-10 w-full sm:h-8"
                   type="email"
                   autoComplete="email"
                   value={email}
@@ -74,10 +77,11 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
+                  className="h-10 w-full sm:h-8"
                   type="password"
                   autoComplete="new-password"
                   minLength={8}
@@ -92,7 +96,11 @@ export default function RegisterPage() {
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                className="h-10 w-full sm:h-8"
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? "Creating account..." : "Create account"}
               </Button>
             </form>

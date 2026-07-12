@@ -54,18 +54,19 @@ export function BudgetForm({ onSuccess }: BudgetFormProps) {
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Add Budget</CardTitle>
         <CardDescription>Set a monthly spending limit for a category</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="category">Category</Label>
               <Input
                 id="category"
+                className="w-full"
                 placeholder="e.g. Groceries, Transportation"
                 {...register("category")}
               />
@@ -76,10 +77,11 @@ export function BudgetForm({ onSuccess }: BudgetFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="limit_amount">Monthly Limit</Label>
               <Input
                 id="limit_amount"
+                className="w-full"
                 type="number"
                 step="0.01"
                 min="0"
@@ -94,7 +96,11 @@ export function BudgetForm({ onSuccess }: BudgetFormProps) {
             </div>
           </div>
 
-          <Button type="submit" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="h-10 w-full sm:h-8 sm:w-auto"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Adding..." : "Add Budget"}
           </Button>
         </form>

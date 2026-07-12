@@ -81,9 +81,13 @@ export function BudgetEditDialog({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="edit-category">Category</Label>
-              <Input id="edit-category" {...register("category")} />
+              <Input
+                id="edit-category"
+                className="w-full"
+                {...register("category")}
+              />
               {errors.category && (
                 <p className="text-sm text-destructive">
                   {errors.category.message}
@@ -91,10 +95,11 @@ export function BudgetEditDialog({
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="edit-limit">Monthly Limit</Label>
               <Input
                 id="edit-limit"
+                className="w-full"
                 type="number"
                 step="0.01"
                 min="0"
@@ -108,10 +113,19 @@ export function BudgetEditDialog({
             </div>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full sm:h-8 sm:w-auto"
+                onClick={onClose}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                className="h-10 w-full sm:h-8 sm:w-auto"
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
