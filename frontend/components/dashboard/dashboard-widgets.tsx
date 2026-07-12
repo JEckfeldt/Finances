@@ -23,14 +23,14 @@ export function BalanceCard({ balance, periodLabel }: BalanceCardProps) {
   const isNegative = value < 0;
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardDescription className="flex items-center gap-2">
-          <DollarSign className="size-4" />
+          <DollarSign className="size-4 shrink-0" />
           Current Balance
         </CardDescription>
         <CardTitle
-          className={`text-3xl font-semibold ${
+          className={`text-2xl font-semibold sm:text-3xl ${
             isNegative ? "text-destructive" : "text-foreground"
           }`}
         >
@@ -38,7 +38,7 @@ export function BalanceCard({ balance, periodLabel }: BalanceCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">
           {periodLabel ?? "Current Balance"}
         </p>
       </CardContent>
@@ -53,18 +53,18 @@ interface IncomeSummaryCardProps {
 
 export function IncomeSummaryCard({ income, periodLabel }: IncomeSummaryCardProps) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardDescription className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
+          <TrendingUp className="size-4 shrink-0 text-primary" />
           Income Summary
         </CardDescription>
-        <CardTitle className="text-2xl font-semibold text-primary">
+        <CardTitle className="text-xl font-semibold text-primary sm:text-2xl">
           {formatCurrency(income)}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">
           {periodLabel ?? "This month's income"}
         </p>
       </CardContent>
@@ -82,18 +82,18 @@ export function ExpenseSummaryCard({
   periodLabel,
 }: ExpenseSummaryCardProps) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardDescription className="flex items-center gap-2">
-          <TrendingDown className="size-4 text-destructive" />
+          <TrendingDown className="size-4 shrink-0 text-destructive" />
           Expense Summary
         </CardDescription>
-        <CardTitle className="text-2xl font-semibold">
+        <CardTitle className="text-xl font-semibold sm:text-2xl">
           {formatCurrency(expenses)}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">
           {periodLabel ?? "This month's expenses"}
         </p>
       </CardContent>
@@ -107,27 +107,29 @@ interface BudgetProgressCardProps {
 
 export function BudgetProgressCard({ budgets }: BudgetProgressCardProps) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Budget Progress</CardTitle>
         <CardDescription>Spending against your budgets</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {budgets.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
+          <p className="py-3 text-center text-sm text-muted-foreground sm:py-4">
             No budgets yet. Create one on the Budgets page.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {budgets.map((budget) => {
               const percentage = Math.min(Math.max(budget.percentage, 0), 100);
               const isOverBudget = parseFloat(budget.remaining) < 0;
 
               return (
-                <div key={budget.category} className="space-y-2">
-                  <div className="flex justify-between gap-2 text-sm">
-                    <span className="truncate font-medium">{budget.category}</span>
-                    <span className="text-muted-foreground">
+                <div key={budget.category} className="min-w-0 space-y-2">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                    <span className="truncate text-sm font-medium">
+                      {budget.category}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground sm:text-sm">
                       {formatCurrency(budget.spent)} /{" "}
                       {formatCurrency(budget.limit_amount)}
                     </span>
@@ -161,36 +163,36 @@ export function RecentTransactionsCard({
   transactions,
 }: RecentTransactionsCardProps) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Recent Transactions</CardTitle>
         <CardDescription>Your latest financial activity</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {transactions.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
+          <p className="py-3 text-center text-sm text-muted-foreground sm:py-4">
             No transactions yet. Add one on the Transactions page.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {transactions.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex flex-col gap-2 rounded-lg border border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex min-w-0 flex-col gap-2 rounded-lg border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3"
               >
                 <div className="min-w-0 space-y-1">
                   <p className="truncate text-sm font-medium">
                     {transaction.description}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <Badge
                       variant={
                         transaction.type === "income" ? "default" : "secondary"
                       }
                       className={
                         transaction.type === "income"
-                          ? "bg-primary/10 text-primary hover:bg-primary/10"
-                          : ""
+                          ? "max-w-full truncate bg-primary/10 text-primary hover:bg-primary/10"
+                          : "max-w-full truncate"
                       }
                     >
                       {transaction.category}
@@ -201,7 +203,7 @@ export function RecentTransactionsCard({
                   </div>
                 </div>
                 <span
-                  className={`shrink-0 text-sm font-medium ${
+                  className={`shrink-0 self-end text-sm font-medium sm:self-center ${
                     transaction.type === "income"
                       ? "text-primary"
                       : "text-foreground"
