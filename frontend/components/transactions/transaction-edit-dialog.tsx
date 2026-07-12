@@ -101,10 +101,14 @@ export function TransactionEditDialog({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2 sm:col-span-2">
                 <Label htmlFor="edit-description">Description</Label>
-                <Input id="edit-description" {...register("description")} />
+                <Input
+                  id="edit-description"
+                  className="w-full"
+                  {...register("description")}
+                />
                 {errors.description && (
                   <p className="text-sm text-destructive">
                     {errors.description.message}
@@ -112,10 +116,11 @@ export function TransactionEditDialog({
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="edit-amount">Amount</Label>
                 <Input
                   id="edit-amount"
+                  className="w-full"
                   type="number"
                   step="0.01"
                   min="0"
@@ -128,15 +133,15 @@ export function TransactionEditDialog({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Type</Label>
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="edit-transaction-type">Type</Label>
                 <Select
                   value={selectedType ?? transaction.type}
                   onValueChange={(value) =>
                     setValue("type", value as "income" | "expense")
                   }
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="edit-transaction-type" className="w-full">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -146,10 +151,11 @@ export function TransactionEditDialog({
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="edit-transaction-date">Date</Label>
                 <Input
                   id="edit-transaction-date"
+                  className="w-full"
                   type="date"
                   {...register("transaction_date")}
                 />
@@ -160,10 +166,11 @@ export function TransactionEditDialog({
                 )}
               </div>
 
-              <div className="space-y-2 sm:col-span-2">
+              <div className="min-w-0 space-y-2 sm:col-span-2">
                 <Label htmlFor="edit-category">Category</Label>
                 <Input
                   id="edit-category"
+                  className="w-full"
                   placeholder="e.g. Food, Salary, Rent"
                   {...register("category")}
                 />
@@ -176,10 +183,15 @@ export function TransactionEditDialog({
             </div>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={onClose}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>

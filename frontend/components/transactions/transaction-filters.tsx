@@ -33,26 +33,27 @@ export function TransactionFilters({
   onCategoryFilterChange,
 }: TransactionFiltersProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+      <div className="min-w-0 space-y-2 sm:col-span-2 lg:col-span-1">
         <Label htmlFor="transaction-search">Search</Label>
         <Input
           id="transaction-search"
+          className="w-full"
           placeholder="Search description or category"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Type</Label>
+      <div className="min-w-0 space-y-2">
+        <Label htmlFor="transaction-type-filter">Type</Label>
         <Select
           value={typeFilter}
           onValueChange={(value) =>
             onTypeFilterChange((value ?? "all") as TypeFilter)
           }
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger id="transaction-type-filter" className="w-full">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
@@ -63,13 +64,13 @@ export function TransactionFilters({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label>Category</Label>
+      <div className="min-w-0 space-y-2 sm:col-span-2 lg:col-span-1">
+        <Label htmlFor="transaction-category-filter">Category</Label>
         <Select
           value={categoryFilter}
           onValueChange={(value) => onCategoryFilterChange(value ?? "all")}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger id="transaction-category-filter" className="w-full">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>

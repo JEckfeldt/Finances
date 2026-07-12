@@ -138,7 +138,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5 sm:space-y-6 lg:space-y-8">
       <div>
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Transactions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -153,14 +153,14 @@ export default function TransactionsPage() {
         }}
       />
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>All Transactions</CardTitle>
           <CardDescription>
             {totalCount} transaction{totalCount !== 1 ? "s" : ""} total
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="min-w-0 space-y-4 sm:space-y-6">
           {(hasAnyTransactions || isFiltered) && (
             <TransactionFilters
               search={search}

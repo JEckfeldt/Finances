@@ -21,13 +21,14 @@ export function TransactionPagination({
 
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground sm:text-left">
         Page {page} of {Math.max(totalPages, 1)} · {totalCount} total
       </p>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
         <Button
           variant="outline"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
@@ -36,6 +37,7 @@ export function TransactionPagination({
         <Button
           variant="outline"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >

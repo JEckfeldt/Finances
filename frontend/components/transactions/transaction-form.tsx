@@ -81,18 +81,19 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Add Transaction</CardTitle>
         <CardDescription>Record a new income or expense</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2 sm:col-span-2">
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
+                className="w-full"
                 placeholder="e.g. Grocery shopping"
                 {...register("description")}
               />
@@ -103,10 +104,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"
+                className="w-full"
                 type="number"
                 step="0.01"
                 min="0"
@@ -120,15 +122,15 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Type</Label>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="transaction-type">Type</Label>
               <Select
                 value={selectedType}
                 onValueChange={(value) =>
                   setValue("type", value as "income" | "expense")
                 }
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="transaction-type" className="w-full">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -143,10 +145,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="transaction-date">Date</Label>
               <Input
                 id="transaction-date"
+                className="w-full"
                 type="date"
                 {...register("transaction_date")}
               />
@@ -157,10 +160,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2 sm:col-span-2">
               <Label htmlFor="category">Category</Label>
               <Input
                 id="category"
+                className="w-full"
                 placeholder="e.g. Food, Salary, Rent"
                 {...register("category")}
               />
@@ -172,7 +176,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
             </div>
           </div>
 
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
             {isSubmitting ? "Adding..." : "Add Transaction"}
           </Button>
         </form>
