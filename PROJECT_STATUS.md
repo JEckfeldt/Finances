@@ -335,5 +335,5 @@ npm run dev
 
 1. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
 2. Alembic migrations — replace manual production schema provisioning
-3. Category model — dedicated table with managed categories (optional)
-4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+3. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+4. Mobile responsiveness — current application is desktop-focused; responsive design for phones and tablets is a planned enhancement after the current production milestones

@@ -13,6 +13,9 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# Documentation
+ARCHITECTURE_GUIDE.md
+
 # Environment
 .env
 .env.*
