@@ -1,518 +1,308 @@
-# Finance App
+# Jake's Finance Tracker
 
 ![CI](https://github.com/JEckfeldt/Finances/actions/workflows/ci.yml/badge.svg)
 
-A personal finance management platform with a clean, modern dashboard aesthetic. Users can view their financial overview, manage transactions, and track budgets.
+A full-stack personal finance application for tracking transactions, managing budgets, and viewing financial analytics. Built with Next.js and FastAPI, containerized with Docker, and deployed to AWS ECS Fargate with automated CI/CD.
 
-> **Project state:** See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for a full breakdown of what is and is not implemented.
+**Live Demo:** [https://app.jakesfinancetracker.com](https://app.jakesfinancetracker.com)  
+**API:** [https://api.jakesfinancetracker.com](https://api.jakesfinancetracker.com)  
+**API Health:** [https://api.jakesfinancetracker.com/health](https://api.jakesfinancetracker.com/health)
 
-## Technology Stack
+> See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for milestone history and implementation details.
 
-| Layer    | Technologies |
-|----------|--------------|
-| Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui, React Hook Form, Zod, Lucide React, Recharts |
-| Backend  | FastAPI, Uvicorn, SQLAlchemy 2.x, Pydantic, python-jose, passlib, psycopg |
-| Database | PostgreSQL 16 |
+---
 
-## Prerequisites
+## Features
 
-- [Docker](https://www.docker.com/) and Docker Compose (recommended)
-- [Node.js](https://nodejs.org/) 20+ (optional, for local frontend development)
-- [Python](https://www.python.org/) 3.12+ (optional, for local backend development)
+- User registration and JWT authentication with per-user data isolation
+- Transaction management — create, edit, delete, search, filter, and paginate
+- Budget tracking with progress bars and case-insensitive category matching
+- Financial dashboard — balance, monthly income/expenses, spending charts, recent transactions
+- Custom 404 page and `/health` endpoints for production monitoring
+- Automated testing, Docker-based deployment, and GitHub Actions CI/CD
 
-## Environment Setup
+---
 
-1. Clone the repository and navigate to the project root.
+## Tech Stack
 
-2. Copy the environment template:
+**Frontend**
+- Next.js 15, TypeScript, Tailwind CSS v4
+- shadcn/ui, React Hook Form, Zod, Lucide React, Recharts
 
-   ```bash
-   cp .env.example .env
-   ```
+**Backend**
+- FastAPI, SQLAlchemy 2.x, Pydantic, python-jose, passlib, psycopg
 
-3. Review `.env` and update values as needed. Do not commit real secrets.
+**Database**
+- PostgreSQL 16
 
-### Environment Variables
+**Infrastructure**
+- Docker, Docker Compose, Amazon ECS Fargate, ECR, RDS, ALB, ACM
+- GitHub Actions (CI + CD)
 
-| Variable | Description |
-|----------|-------------|
-| `APP_ENV` | `development` (default) or `production`. Controls automatic schema setup on backend startup. |
-| `POSTGRES_USER` | PostgreSQL username for Docker Compose |
-| `POSTGRES_PASSWORD` | PostgreSQL password for Docker Compose |
-| `POSTGRES_DB` | PostgreSQL database name |
-| `DATABASE_URL` | SQLAlchemy connection string for the backend |
-| `TEST_DATABASE_URL` | Optional. Separate PostgreSQL database for backend tests (defaults to `finance_app_test`) |
-| `SECRET_KEY` | JWT signing key. Must be changed and at least 32 characters when `APP_ENV=production` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT access token lifetime in minutes |
-| `CORS_ORIGINS` | Comma-separated allowed frontend origins (use `http://` locally, `https://` in production) |
-| `NEXT_PUBLIC_API_URL` | Browser-accessible backend URL; required at frontend build time and in `frontend/.env.local` for local dev |
-| `COOKIE_SECURE` | `false` in development, `true` in production (prepares future httpOnly cookies) |
-| `COOKIE_SAMESITE` | Cookie SameSite policy (`lax`, `strict`, or `none`) |
-| `COOKIE_HTTPONLY` | Default `true`; used when cookie-based auth is implemented |
+---
 
-For production values, see [`.env.production.example`](.env.production.example).
+## Architecture
 
-## Running the Application
-
-### Production-style Docker (full stack)
-
-From the project root:
-
-```bash
-docker compose up -d --build
+```
+Browser
+   |
+   v
+Application Load Balancer (HTTPS / ACM)
+   |
+   +-- Frontend (ECS Fargate) — Next.js on port 3000
+   |
+   +-- Backend (ECS Fargate) — FastAPI on port 8000
+           |
+           v
+       Amazon RDS (PostgreSQL 16)
 ```
 
-This starts PostgreSQL, the FastAPI backend, and the Next.js frontend.
+**Production URLs**
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://app.jakesfinancetracker.com |
+| Backend API | https://api.jakesfinancetracker.com |
+| API docs | https://api.jakesfinancetracker.com/docs |
+| Health check | https://api.jakesfinancetracker.com/health |
+
+**Repository layout**
+
+```
+/
+├── frontend/              Next.js application
+├── backend/               FastAPI application
+│   └── tests/             pytest suite
+├── docker-compose.yml     Local development stack
+├── .env.example           Development environment template
+├── .env.production.example
+└── .github/workflows/     CI and CD pipelines
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Docker and Docker Compose (recommended)
+- Node.js 20+ (optional, for frontend-only dev)
+- Python 3.12+ (optional, for backend-only dev)
+
+### Quick start (Docker)
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
 
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
-| Health check | http://localhost:8000/health |
 
-Check container status:
+Stop services: `docker compose down` (add `-v` to remove database data).
 
-```bash
-docker compose ps
-docker compose logs
-```
-
-Stop services:
+### Frontend only
 
 ```bash
-docker compose down
-docker compose down -v    # also remove persisted database data
-```
-
-### Local development (frontend only)
-
-With database and backend running via Docker:
-
-```bash
+docker compose up -d postgres backend
 cd frontend
 npm install
 cp ../.env.example .env.local
 npm run dev
 ```
 
-The app runs at http://localhost:3000.
-
-### Local development (backend only)
-
-Ensure PostgreSQL is running, then from `backend/`:
+### Backend only
 
 ```bash
+docker compose up -d postgres
+cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
+source .venv/bin/activate          # macOS/Linux
+# .venv\Scripts\Activate.ps1       # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-## Backend Testing
+### Environment variables
 
-Tests use **pytest** with an isolated PostgreSQL database. They never run against the development database (`finance_app`).
+| Variable | Description |
+|----------|-------------|
+| `APP_ENV` | `development` or `production` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SECRET_KEY` | JWT signing key (32+ chars in production) |
+| `CORS_ORIGINS` | Allowed frontend origins (`http://` locally, `https://` in production) |
+| `NEXT_PUBLIC_API_URL` | Backend URL for frontend (build-time in Docker) |
+| `COOKIE_SECURE` | `false` locally, `true` in production |
+| `COOKIE_SAMESITE` | Cookie SameSite policy (`lax`, `strict`, `none`) |
+| `TEST_DATABASE_URL` | Optional isolated test database |
 
-### Prerequisites
+See [`.env.example`](.env.example) for development and [`.env.production.example`](.env.production.example) for production.
 
-- PostgreSQL must be running (for example via `docker compose up -d postgres`)
-- The test database is created automatically on first run if it does not exist (`finance_app_test` by default)
+### Backend testing
 
-All commands below should be run from the `backend/` directory.
-
-### Activate the virtual environment
-
-Install test dependencies and run `pytest` only after activating the backend virtual environment. If you have not created one yet:
-
-```bash
-cd backend
-python -m venv .venv
-```
-
-Activate the environment before each test session:
-
-**Windows PowerShell:**
-
-```powershell
-cd backend
-.venv\Scripts\Activate.ps1
-```
-
-**Windows CMD:**
-
-```cmd
-cd backend
-.venv\Scripts\activate.bat
-```
-
-**macOS/Linux:**
-
-```bash
-cd backend
-source .venv/bin/activate
-```
-
-Your shell prompt should show `(.venv)` when the environment is active.
-
-### Install test dependencies
-
-With the virtual environment activated, from `backend/`:
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-### Run tests
-
-With the virtual environment still activated, from `backend/`:
-
-```bash
-pytest
-```
-
-Or:
-
-```bash
-python -m pytest
-```
-
-Optional: override the test database URL:
-
-```bash
-TEST_DATABASE_URL=postgresql+psycopg://finance_user:finance_pass@localhost:5432/finance_app_test pytest
-```
-
-### Test coverage
-
-| Module | Coverage |
-|--------|----------|
-| `test_auth.py` | Registration, login, password hashing, JWT protected routes |
-| `test_transactions.py` | CRUD, category normalization, user isolation |
-| `test_budgets.py` | CRUD, case-insensitive progress calculation |
-| `test_dashboard.py` | Balance aggregation, monthly filtering, widget limits |
-
-Each test starts with a clean database state. Tables are recreated before every test.
-
-## Continuous Integration
-
-Every push to `main` and every pull request targeting `main` automatically runs the CI pipeline defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
-The workflow runs three jobs in parallel:
-
-| Job | What it validates |
-|-----|-------------------|
-| Backend Tests | Full pytest suite against an isolated PostgreSQL service |
-| Frontend Build | `npm ci`, ESLint (if configured), and production `npm run build` |
-| Docker Validation | Backend and frontend image builds plus `docker compose config` |
-
-If any job fails, the workflow fails and the push or pull request is blocked until the issue is fixed.
-
-### Reproduce CI checks locally
-
-Run these from the repository root. They mirror what GitHub Actions runs.
-
-**Backend tests** — requires PostgreSQL on port 5432:
+Requires PostgreSQL running (`docker compose up -d postgres`).
 
 ```bash
 cd backend
 python -m venv .venv
 source .venv/bin/activate          # macOS/Linux
-# .venv\Scripts\Activate.ps1       # Windows PowerShell
-
 pip install -r requirements-dev.txt
-
-export APP_ENV=development
-export SECRET_KEY=ci-secret-key-with-at-least-32-characters
-export CORS_ORIGINS=http://localhost:3000
-export TEST_DATABASE_URL=postgresql+psycopg://finance_user:finance_pass@localhost:5432/finance_app_test
-export DATABASE_URL=$TEST_DATABASE_URL
-
 pytest
 ```
 
-**Frontend build:**
+24 integration tests cover auth, transactions, budgets, and dashboard endpoints. Tests use an isolated `finance_app_test` database.
+
+### Reproduce CI checks locally
 
 ```bash
-cd frontend
-npm ci
-npm run lint --if-present
+# Backend tests
+cd backend && source .venv/bin/activate
+export APP_ENV=development SECRET_KEY=ci-secret-key-with-at-least-32-characters
+export CORS_ORIGINS=http://localhost:3000
+export TEST_DATABASE_URL=postgresql+psycopg://finance_user:finance_pass@localhost:5432/finance_app_test
+export DATABASE_URL=$TEST_DATABASE_URL
+pytest
+
+# Frontend build
+cd frontend && npm ci && npm run lint --if-present
 NEXT_PUBLIC_API_URL=http://localhost:8000 npm run build
-```
 
-**Docker validation:**
-
-```bash
-docker build -t finance-app-backend:local ./backend
-docker build --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 -t finance-app-frontend:local ./frontend
-
-POSTGRES_USER=finance_user \
-POSTGRES_PASSWORD=finance_pass \
-POSTGRES_DB=finance_app \
-SECRET_KEY=ci-secret-key-with-at-least-32-characters \
-CORS_ORIGINS=http://localhost:3000 \
-NEXT_PUBLIC_API_URL=http://localhost:8000 \
+# Docker validation
+docker build -t finance-backend:local ./backend
+docker build --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 -t finance-frontend:local ./frontend
 docker compose config --quiet
 ```
 
-## Production Notes
+---
 
-- Set `APP_ENV=production` to skip automatic table creation and startup migrations on the backend.
-- Provision the database schema separately before deploying (see [AWS Deployment](#aws-deployment)).
-- Change `SECRET_KEY` to a strong random value of at least 32 characters.
-- Set `CORS_ORIGINS` to your deployed frontend HTTPS origin(s).
-- Set `NEXT_PUBLIC_API_URL` to the browser-accessible backend **HTTPS** URL **before building** the frontend Docker image.
-- See [`.env.production.example`](.env.production.example) for all production variables.
-- The application is **HTTPS-ready at the code level**. Production URLs must use `https://`. Local development continues to use HTTP.
+## Production Deployment
 
-### HTTPS readiness
+The application is live on AWS with HTTPS, custom domains, and automated deployments.
 
-The codebase is prepared for HTTPS termination at the ALB:
+**Current production**
 
-- Production `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` must use `https://` domains
-- Backend CORS allows credentialed requests (`allow_credentials=True`) for future cookie-based auth
-- Cookie security flags (`COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`) are environment-driven
-- Frontend API client sends `credentials: "include"` on all requests
-- JWT tokens still use `localStorage` today; httpOnly cookie migration is planned during auth hardening
+- Frontend: https://app.jakesfinancetracker.com
+- Backend: https://api.jakesfinancetracker.com
+- TLS terminated at ALB using ACM certificates
+- HTTP redirects to HTTPS
+- ECS Fargate services behind separate ALBs
+- RDS PostgreSQL for persistent storage
+- Docker images stored in ECR
 
-#### Current authentication assumptions (to be addressed in auth hardening)
-
-| Area | Current behavior | Planned change |
-|------|------------------|----------------|
-| Token storage | `localStorage` via `lib/auth.ts` | httpOnly Secure cookies set by backend |
-| Authorization header | `Bearer` token on each request | Cookie-based session or dual support during migration |
-| Token refresh | Not implemented | Refresh token rotation |
-
-### Backend production environment
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `APP_ENV` | Yes | Must be `production` in deployed environments |
-| `DATABASE_URL` | Yes | PostgreSQL connection string (`postgresql+psycopg://...`) |
-| `SECRET_KEY` | Yes | JWT signing key, at least 32 characters, not the default value |
-| `CORS_ORIGINS` | Yes | Comma-separated frontend HTTPS origins (e.g. `https://app.example.com`) |
-| `COOKIE_SECURE` | Yes (prod) | Must be `true` in production |
-| `COOKIE_SAMESITE` | No | `lax` (default), `strict`, or `none` |
-| `COOKIE_HTTPONLY` | No | Default `true`; used when cookie auth is implemented |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | JWT lifetime in minutes (default: 10080) |
-
-The backend Docker image listens on `0.0.0.0:8000`. On startup it validates configuration, verifies the database connection, and logs clear errors before exiting if anything fails. The `GET /health` endpoint is public and requires no authentication.
-
-### Frontend production environment
-
-| Variable | Required | When | Description |
-|----------|----------|------|-------------|
-| `NEXT_PUBLIC_API_URL` | Yes | **Build time** | Public backend URL baked into the Next.js bundle |
-
-`NEXT_PUBLIC_API_URL` is the only source for API URL configuration. It must be set when building the frontend Docker image:
-
-```bash
-docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com -t finance-frontend ./frontend
-```
-
-For local development, set it in `frontend/.env.local` (copy from `.env.example`).
-
-## AWS Deployment
-
-Simple deployment using Docker images on **AWS App Runner** or **ECS Fargate**, with **Amazon RDS PostgreSQL**.
-
-### Required AWS resources
+### AWS resources
 
 | Resource | Purpose |
 |----------|---------|
+| ECS Fargate (2 services) | Run frontend and backend containers |
+| Application Load Balancer (2) | HTTPS termination and routing |
 | Amazon RDS (PostgreSQL 16) | Application database |
-| Amazon ECR (2 repositories) | Store backend and frontend Docker images |
-| AWS App Runner or ECS Fargate (2 services) | Run backend and frontend containers |
-| (Optional) Application Load Balancer | Required for ECS; App Runner provides HTTPS automatically |
+| Amazon ECR (2 repositories) | Docker image storage |
+| ACM | SSL/TLS certificates |
+| Route 53 / DNS | Custom domain routing |
 
-### Required environment variables
+### Production environment variables
 
-Copy from [`.env.production.example`](.env.production.example):
-
-| Variable | Service | Notes |
+| Variable | Service | Value |
 |----------|---------|-------|
-| `APP_ENV` | Backend | Set to `production` |
-| `DATABASE_URL` | Backend | RDS endpoint with `postgresql+psycopg://` driver |
-| `SECRET_KEY` | Backend | Strong random string, 32+ characters |
-| `CORS_ORIGINS` | Backend | Your frontend HTTPS URL |
-| `NEXT_PUBLIC_API_URL` | Frontend build | Your backend HTTPS URL (build-time only) |
-| `COOKIE_SECURE` | Backend | `true` in production |
-| `COOKIE_SAMESITE` | Backend | `lax` recommended |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Backend | Optional |
+| `APP_ENV` | Backend | `production` |
+| `DATABASE_URL` | Backend | RDS connection string |
+| `SECRET_KEY` | Backend | Strong random 32+ char secret |
+| `CORS_ORIGINS` | Backend | `https://app.jakesfinancetracker.com` |
+| `NEXT_PUBLIC_API_URL` | Frontend build | `https://api.jakesfinancetracker.com` |
+| `COOKIE_SECURE` | Backend | `true` |
+| `COOKIE_SAMESITE` | Backend | `lax` |
 
-### Deployment steps
+Backend validates config on startup, verifies database connectivity, and exposes `GET /health` (no auth required). Frontend image must be built with `NEXT_PUBLIC_API_URL` set at build time:
 
-1. **Create RDS PostgreSQL**
-   - Engine: PostgreSQL 16
-   - Note the endpoint, port, database name, username, and password
-   - Allow inbound access from your backend service security group
+```bash
+docker build --build-arg NEXT_PUBLIC_API_URL=https://api.jakesfinancetracker.com -t finance-frontend ./frontend
+```
 
-2. **Provision the database schema (one time)**
-   - The backend skips automatic schema creation when `APP_ENV=production`
-   - Run the backend once with `APP_ENV=development` pointed at RDS to create tables, or apply schema manually
-   - After schema exists, deploy with `APP_ENV=production`
+### HTTPS configuration (completed)
 
-3. **Build and push Docker images to ECR**
+1. Custom domains configured (`app.jakesfinancetracker.com`, `api.jakesfinancetracker.com`)
+2. ACM SSL/TLS certificates issued and validated
+3. HTTPS listeners (port 443) on both ALBs with ACM certificates attached
+4. HTTP (port 80) listeners redirect to HTTPS
+5. DNS points domains to ALBs
+6. ECS environment variables use `https://` URLs
+7. ALB health checks use `/health` on both services
+8. End-to-end HTTPS deployment verified
 
-   ```bash
-   # Authenticate to ECR (replace account/region)
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ACCOUNT.dkr.ecr.us-east-1.amazonaws.com
-
-   # Backend
-   docker build -t finance-backend ./backend
-   docker tag finance-backend:latest ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-backend:latest
-   docker push ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-backend:latest
-
-   # Frontend — NEXT_PUBLIC_API_URL must be your deployed backend URL
-   docker build --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com -t finance-frontend ./frontend
-   docker tag finance-frontend:latest ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-frontend:latest
-   docker push ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/finance-frontend:latest
-   ```
-
-4. **Deploy backend (App Runner or ECS Fargate)**
-   - Image: backend ECR image
-   - Port: `8000`
-   - Health check path: `/health`
-   - Environment variables: `APP_ENV`, `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`
-   - Ensure the service can reach RDS on port 5432
-
-5. **Deploy frontend (App Runner or ECS Fargate)**
-   - Image: frontend ECR image (already built with `NEXT_PUBLIC_API_URL`)
-   - Port: `3000`
-   - No runtime API URL configuration needed — it is baked in at build time
-
-6. **Verify**
-   - `GET https://api.yourdomain.com/health` returns `{"status":"ok"}`
-   - Open the frontend URL and register/login
-
-### Common failure points
+### Common production issues
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Backend container exits on startup | Invalid `DATABASE_URL` or RDS not reachable | Check security groups, RDS endpoint, credentials; read container logs |
-| Backend starts but frontend API calls fail | Wrong `NEXT_PUBLIC_API_URL` at build time | Rebuild frontend image with correct backend URL |
-| CORS errors in browser | `CORS_ORIGINS` missing frontend URL | Add exact frontend origin (including `https://`) to backend env |
-| `SECRET_KEY` validation error | Default or short secret in production | Set a unique 32+ character secret |
-| 401 on all routes except `/health` | Expected — routes require JWT auth | Register/login via frontend |
-| Database tables missing | Schema not provisioned before production deploy | Bootstrap schema once with `APP_ENV=development`, then redeploy with `production` |
+| Backend exits on startup | Invalid `DATABASE_URL` or RDS unreachable | Check security groups and credentials |
+| Frontend API calls fail | Wrong `NEXT_PUBLIC_API_URL` at build time | Rebuild frontend with correct HTTPS backend URL |
+| CORS errors | `CORS_ORIGINS` mismatch | Set exact `https://` frontend origin |
+| Health check failures | Wrong health check path | Ensure ALB checks `/health` |
 
-## HTTPS Deployment Checklist
+---
 
-Complete these manual AWS steps to enable HTTPS. The application code is already prepared.
+## CI/CD Pipeline
 
-1. **Configure a production domain name** for frontend and backend (e.g. `app.example.com`, `api.example.com`).
-2. **Request an ACM SSL/TLS certificate** for the domain(s) in the same AWS region as the ALB.
-3. **Complete ACM DNS validation** by adding the required CNAME records.
-4. **Add an HTTPS listener (port 443)** to the Application Load Balancer.
-5. **Attach the ACM certificate** to the HTTPS listener.
-6. **Configure the HTTP (port 80) listener** to redirect all traffic to HTTPS.
-7. **Configure DNS** (Route 53 or external provider) to point the domain(s) to the ALB.
-8. **Update ECS environment variables:**
-   - `NEXT_PUBLIC_API_URL` — rebuild frontend image with `https://` backend URL
-   - `CORS_ORIGINS` — set to `https://` frontend domain
-   - `COOKIE_SECURE=true` on backend
-9. **Redeploy ECS services** (push to `main` or run the Deploy workflow).
-10. **Verify:**
-    - `https://` frontend and backend load successfully
-    - HTTP redirects to HTTPS
-    - Frontend communicates with backend (register/login, dashboard)
-    - No CORS errors in browser console
-    - ALB target groups report healthy
-
-## Continuous Deployment
-
-Pushes to `main` automatically deploy to AWS ECS after CI passes. CD is a separate workflow from CI and does not modify the existing [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
-### How CD works
+Pushing to `main` triggers automated validation and production deployment.
 
 ```
-git push main
-      |
-      v
-CI workflow (ci.yml) — backend tests, frontend build, Docker validation
-      |
-      v (on success)
-Deploy workflow (deploy.yml)
-      |
-      +-- Build backend Docker image → tag with commit SHA → push to ECR
-      +-- Build frontend Docker image → tag with commit SHA → push to ECR
-      +-- Update backend ECS task definition → deploy → wait for stability
-      +-- Verify backend /health endpoint
-      +-- Update frontend ECS task definition → deploy → wait for stability
-      +-- Verify frontend URL responds
+git push main → CI (tests, build, Docker) → CD (ECR push, ECS deploy) → health verification
 ```
 
-Image tags use the full Git commit SHA, for example:
+### CI — `.github/workflows/ci.yml`
 
-- `ACCOUNT.dkr.ecr.REGION.amazonaws.com/BACKEND_REPO:abc123def456...`
-- `ACCOUNT.dkr.ecr.REGION.amazonaws.com/FRONTEND_REPO:abc123def456...`
+Runs on every push and pull request to `main`:
 
-Task definitions are read from the currently running ECS services, updated with the new image tag, registered, and deployed. No task definition names need to be hardcoded in the workflow.
+| Job | Validates |
+|-----|-----------|
+| Backend Tests | pytest against PostgreSQL (Python 3.12) |
+| Frontend Build | `npm ci`, ESLint, production build (Node 20) |
+| Docker Validation | Image builds and `docker compose config` |
 
-### Required GitHub repository secrets
+### CD — `.github/workflows/deploy.yml`
+
+Runs after CI succeeds on `main`, or manually via **Actions → Deploy → Run workflow**:
+
+1. Build backend and frontend Docker images (tagged with commit SHA)
+2. Push images to Amazon ECR
+3. Update ECS task definitions and deploy services
+4. Wait for service stability
+5. Verify backend `/health` and frontend availability
+
+### GitHub configuration
+
+**Secrets** (Settings → Secrets and variables → Actions → Secrets):
 
 | Secret | Description |
 |--------|-------------|
-| `AWS_ACCESS_KEY_ID` | IAM user access key for deployment |
-| `AWS_SECRET_ACCESS_KEY` | IAM user secret key for deployment |
+| `AWS_ACCESS_KEY_ID` | IAM deployment access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM deployment secret key |
 
-Store these under **Settings → Secrets and variables → Actions → Secrets**.
+**Variables** (Settings → Secrets and variables → Actions → Variables):
 
-> **Recommended upgrade:** Replace long-lived access keys with GitHub OIDC and an IAM role. That requires additional AWS and GitHub configuration not included in this workflow.
+| Variable | Production value |
+|----------|------------------|
+| `AWS_REGION` | Your AWS region |
+| `ECR_BACKEND_REPOSITORY` | Backend ECR repo name |
+| `ECR_FRONTEND_REPOSITORY` | Frontend ECR repo name |
+| `ECS_CLUSTER` | ECS cluster name |
+| `ECS_BACKEND_SERVICE` | Backend service name |
+| `ECS_FRONTEND_SERVICE` | Frontend service name |
+| `ECS_BACKEND_CONTAINER_NAME` | Backend container name |
+| `ECS_FRONTEND_CONTAINER_NAME` | Frontend container name |
+| `NEXT_PUBLIC_API_URL` | `https://api.jakesfinancetracker.com` |
+| `BACKEND_HEALTH_URL` | `https://api.jakesfinancetracker.com/health` |
+| `FRONTEND_URL` | `https://app.jakesfinancetracker.com` |
 
-### Required GitHub repository variables
+### IAM permissions (minimum)
 
-Configure these under **Settings → Secrets and variables → Actions → Variables**:
+- **ECR:** push and pull images
+- **ECS:** describe services/task definitions, register task definitions, update services
+- **STS:** `GetCallerIdentity`
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `AWS_REGION` | AWS region for ECR and ECS | `us-east-1` |
-| `ECR_BACKEND_REPOSITORY` | ECR repository name for backend | `finance-backend` |
-| `ECR_FRONTEND_REPOSITORY` | ECR repository name for frontend | `finance-frontend` |
-| `ECS_CLUSTER` | ECS cluster name | `finance-cluster` |
-| `ECS_BACKEND_SERVICE` | Backend ECS service name | `finance-backend-service` |
-| `ECS_FRONTEND_SERVICE` | Frontend ECS service name | `finance-frontend-service` |
-| `ECS_BACKEND_CONTAINER_NAME` | Container name in backend task definition | from ECS console |
-| `ECS_FRONTEND_CONTAINER_NAME` | Container name in frontend task definition | from ECS console |
-| `NEXT_PUBLIC_API_URL` | Public backend URL (frontend build arg) | `https://api.yourdomain.com` |
-| `BACKEND_HEALTH_URL` | Backend health check URL | `https://api.yourdomain.com/health` |
-| `FRONTEND_URL` | Public frontend URL | `https://app.yourdomain.com` |
-
-**These values are not in the repository.** Copy them from your AWS console and ALB DNS names before the first automated deploy.
-
-### Required AWS IAM permissions
-
-The deployment IAM user or role needs at minimum:
-
-| Service | Permissions |
-|---------|-------------|
-| ECR | `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `GetDownloadUrlForLayer`, `BatchGetImage`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload` |
-| ECS | `DescribeServices`, `DescribeTaskDefinition`, `RegisterTaskDefinition`, `UpdateService` |
-| STS | `GetCallerIdentity` |
-
-Example policy scope: ECR repositories and ECS cluster/services used by this project only.
-
-### Manual trigger and retry
-
-To redeploy without a new commit:
-
-1. Open **Actions → Deploy → Run workflow**
-2. Select the `main` branch
-3. Click **Run workflow**
-
-`workflow_dispatch` skips the CI gate. Use this to retry a failed deployment or redeploy the current `main` commit. For normal releases, push to `main` and let CI trigger CD automatically.
-
-### Troubleshooting failed deployments
-
-| Failure stage | What to check |
-|---------------|---------------|
-| Validate deployment configuration | All repository variables and secrets listed above are set |
-| Build and push | Dockerfile errors; ECR repository exists; IAM has ECR push permissions |
-| Deploy to ECS | Container name matches task definition; IAM has ECS update permissions |
-| Wait for service stability | ECS service events; task logs in CloudWatch; security groups; RDS connectivity |
-| Backend health check | `BACKEND_HEALTH_URL` is correct; ALB target group healthy; backend task running |
-| Frontend availability | `FRONTEND_URL` is correct; frontend task running; `NEXT_PUBLIC_API_URL` matches backend URL |
-
-View ECS service events:
+### Troubleshooting deployments
 
 ```bash
 aws ecs describe-services \
@@ -521,28 +311,10 @@ aws ecs describe-services \
   --query 'services[0].events[:5]'
 ```
 
-View failed task logs in CloudWatch Logs for the service's log group.
+Check CloudWatch Logs for failed task output. To retry without a new commit: **Actions → Deploy → Run workflow**.
 
-## Folder Structure
+---
 
-```
-/
-├── PROJECT_STATUS.md
-├── README.md
-├── docker-compose.yml
-├── .env.example
-├── .env.production.example
-├── frontend/          Next.js application
-├── backend/           FastAPI application
-│   └── tests/         pytest test suite (isolated test database)
-└── .github/workflows/
-    ├── ci.yml         GitHub Actions CI pipeline
-    └── deploy.yml     GitHub Actions CD pipeline (ECS deploy)
-```
+## Authentication notes
 
-## Stopping Services
-
-```bash
-docker compose down
-docker compose down -v    # Stop and remove persisted data
-```
+JWT tokens are currently stored in `localStorage` and sent via `Authorization: Bearer` headers. The codebase is prepared for future httpOnly Secure cookie migration (`credentials: "include"`, `COOKIE_SECURE`, `COOKIE_SAMESITE` env vars). Token refresh is not yet implemented.

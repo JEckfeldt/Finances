@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 11, 2026
+Last updated: July 11, 2026 (HTTPS production deployment)
 
-**Current state:** Full-stack personal finance app live on AWS ECS Fargate with RDS PostgreSQL. GitHub Actions CI/CD deploys automatically on push to `main`. Application is HTTPS-ready at the code level; ALB HTTPS termination requires manual AWS configuration (see README HTTPS Deployment Checklist).
+**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 15 milestones complete.
 
 ---
 
@@ -40,6 +40,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M12 — AWS deployment / production launch | Complete | ECS + ALB frontend/backend, RDS PostgreSQL, production env, verified live |
 | M13 — Continuous deployment | Complete | GitHub Actions CD: push to `main` → ECR → ECS deploy, verified in production |
 | M14 — UX polish | Complete | Custom 404 page consistent with the application's design system |
+| M15 — HTTPS deployment | Complete | Custom domains, ACM certificates, ALB TLS, HTTPS CI/CD verification |
 
 ---
 
@@ -59,7 +60,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Structured logging on backend startup and shutdown
 - GitHub Actions CI (`.github/workflows/ci.yml`) on push/PR to `main`
 - GitHub Actions CD (`.github/workflows/deploy.yml`) on push to `main` after CI passes
-- AWS production deployment (ECS Fargate, ALB, RDS PostgreSQL, ECR)
+- AWS production deployment (ECS Fargate, ALB, RDS PostgreSQL, ECR, ACM, Route 53)
+- Production HTTPS: https://app.jakesfinancetracker.com / https://api.jakesfinancetracker.com
 
 ### Frontend
 
@@ -139,21 +141,27 @@ Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `se
 - Frontend `GET /health` endpoint added for ALB target group health checks
 - ALB target group health checks configured to use `/health` on frontend and backend
 
-### HTTPS readiness
+### HTTPS deployment (M15)
 
-Application code is prepared for HTTPS. Remaining work is manual AWS configuration.
+Production HTTPS is fully configured and verified.
 
 | Item | Status |
 |------|--------|
-| Production env templates use `https://` URLs | Ready |
-| Backend validates HTTPS CORS origins in production | Ready |
-| Cookie security flags (`COOKIE_SECURE`, `COOKIE_SAMESITE`) | Configured |
-| Frontend `credentials: "include"` on API requests | Ready |
-| ALB HTTPS listener + ACM certificate | Pending (manual AWS) |
-| HTTP → HTTPS redirect on ALB | Pending (manual AWS) |
-| JWT httpOnly cookie storage | Planned (auth hardening) |
+| Custom domain — frontend (`app.jakesfinancetracker.com`) | Complete |
+| Custom domain — backend (`api.jakesfinancetracker.com`) | Complete |
+| ACM SSL/TLS certificates | Complete |
+| ALB HTTPS listeners (port 443) | Complete |
+| HTTP → HTTPS redirect | Complete |
+| DNS routing to ALBs | Complete |
+| Production env vars use `https://` URLs | Complete |
+| CD pipeline verifies HTTPS health endpoints | Complete |
+| End-to-end HTTPS deployment | Verified |
 
-See [README.md](./README.md#https-deployment-checklist) for the full HTTPS deployment checklist.
+Production URLs:
+
+- Frontend: https://app.jakesfinancetracker.com
+- Backend API: https://api.jakesfinancetracker.com
+- Health check: https://api.jakesfinancetracker.com/health
 
 ### Automated tests (M10)
 
@@ -200,8 +208,8 @@ Production configuration:
 
 - Backend runs with `APP_ENV=production` (no automatic schema changes on startup)
 - Environment variables (`DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, etc.) set through ECS task definitions
-- Frontend image built with production `NEXT_PUBLIC_API_URL` pointing to the backend ALB URL
-- Health checks: backend `GET /health`; frontend `GET /health` (ALB target group)
+- Frontend image built with `NEXT_PUBLIC_API_URL=https://api.jakesfinancetracker.com`
+- Health checks: backend and frontend `GET /health` (ALB target groups)
 
 See [README.md](./README.md#aws-deployment) for deployment architecture and troubleshooting.
 
@@ -234,8 +242,8 @@ Runs automatically after CI succeeds on `main` push, or manually via **Actions �
 Current production state:
 
 - Push to `main` → CI passes → CD deploys to ECS
-- ALB target group health checks use `/health` on both frontend and backend
-- Production deployment verified working
+- HTTPS health checks verified on both frontend and backend
+- Live at https://app.jakesfinancetracker.com
 
 See [README.md](./README.md#continuous-integration) and [README.md](./README.md#continuous-deployment) for details.
 
@@ -246,7 +254,6 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 - Transaction detail view (single-transaction page)
 - Category autocomplete (intentionally removed; free-text only)
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
-- ALB HTTPS termination (ACM certificate, HTTPS listener, HTTP redirect) — manual AWS steps documented
 - Next.js middleware for server-side route protection
 - Token refresh / rotation; httpOnly cookie storage
 - Dedicated category database table
@@ -326,8 +333,7 @@ npm run dev
 
 ## Suggested Next Steps
 
-1. Enable HTTPS on ALB — ACM certificate, HTTPS listener, HTTP redirect (see README checklist)
-2. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
-3. Alembic migrations — replace manual production schema provisioning
-4. Category model — dedicated table with managed categories (optional)
-5. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+1. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
+2. Alembic migrations — replace manual production schema provisioning
+3. Category model — dedicated table with managed categories (optional)
+4. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
