@@ -19,6 +19,7 @@ A full-stack personal finance application for tracking transactions, managing bu
 - Budget tracking with progress bars and case-insensitive category matching
 - Financial dashboard — balance, monthly income/expenses, spending charts, recent transactions
 - Custom 404 page and `/health` endpoints for production monitoring
+- Responsive layouts for phones, tablets, and desktops (hamburger navigation below `lg`, responsive forms and page grids)
 - Automated testing, Docker-based deployment, and GitHub Actions CI/CD
 
 ---
@@ -28,6 +29,7 @@ A full-stack personal finance application for tracking transactions, managing bu
 **Frontend**
 - Next.js 15, TypeScript, Tailwind CSS v4
 - shadcn/ui, React Hook Form, Zod, Lucide React, Recharts
+- Responsive layouts with mobile hamburger navigation (desktop sidebar at `lg` / 1024px+)
 
 **Backend**
 - FastAPI, SQLAlchemy 2.x, Pydantic, python-jose, passlib, psycopg

@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 11, 2026 (HTTPS production deployment)
+Last updated: July 12, 2026 (Mobile responsiveness)
 
-**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 15 milestones complete.
+**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 16 milestones complete. Frontend supports responsive layouts for phones, tablets, and desktops.
 
 ---
 
@@ -41,6 +41,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M13 — Continuous deployment | Complete | GitHub Actions CD: push to `main` → ECR → ECS deploy, verified in production |
 | M14 — UX polish | Complete | Custom 404 page consistent with the application's design system |
 | M15 — HTTPS deployment | Complete | Custom domains, ACM certificates, ALB TLS, HTTPS CI/CD verification |
+| M16 — Mobile responsiveness | Complete | Responsive layouts, mobile navigation, touch-friendly forms, page-level QA across all routes |
 
 ---
 
@@ -68,24 +69,28 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Next.js 15 (App Router, TypeScript, Tailwind CSS v4)
 - shadcn/ui, React Hook Form + Zod, Lucide React, Recharts
 - Off-white / soft-green theme; Geist Sans via `next/font`
-- Full-height sidebar app shell; authenticated routes behind `AuthGuard`
+- Full-height sidebar app shell at `lg` (1024px+); hamburger menu with slide-out drawer below `lg`
+- Authenticated routes behind `AuthGuard`
+- Responsive page layouts with scaled spacing (`space-y-5` mobile → `lg:space-y-8` desktop)
 - Login and registration pages; JWT stored in `localStorage` (httpOnly cookie migration planned)
 - API client sends `credentials: "include"` on all requests
 - Loading skeletons and error states with retry
 - Health endpoint: `GET /health` (public, no auth; used by ALB target group)
 - Custom 404 page (`app/not-found.tsx`) matching app design system
+- Shared `DialogShell` for scrollable edit dialogs on small screens
+- `useMediaQuery` hook for responsive chart sizing
 
 #### Pages
 
 | Route | Status | Details |
 |-------|--------|---------|
-| `/login` | Functional | Email/password form, stores JWT, redirects to dashboard |
-| `/register` | Functional | Email/password registration (min 8 chars), redirects to login |
-| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts |
-| `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination |
-| `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states |
+| `/login` | Functional | Email/password form, stores JWT, redirects to dashboard; responsive layout |
+| `/register` | Functional | Email/password registration (min 8 chars), redirects to login; responsive layout |
+| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; responsive grids and charts |
+| `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination; card layout below `lg`, table at `lg+` |
+| `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states; responsive card grid |
 | `/health` | Functional | Public health check; returns `{"status":"ok"}` for ALB |
-| `/*` (unknown routes) | Functional | Custom 404 page via `app/not-found.tsx` |
+| `/*` (unknown routes) | Functional | Custom 404 page via `app/not-found.tsx`; responsive centered layout |
 
 ### Backend
 
@@ -140,6 +145,60 @@ Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `se
 - Custom 404 page (`app/not-found.tsx`) with centered layout, app branding, and navigation to dashboard/login
 - Frontend `GET /health` endpoint added for ALB target group health checks
 - ALB target group health checks configured to use `/health` on frontend and backend
+
+### Mobile responsiveness (M16)
+
+Responsive layout foundation across all frontend pages. Desktop appearance at `lg` (1024px+) is preserved; phones and tablets receive adapted layouts.
+
+| Area | Implementation |
+|------|----------------|
+| Mobile navigation | Hamburger menu and slide-out drawer below `lg`; permanent sidebar unchanged at `lg+` |
+| Responsive layouts | `min-w-0` and `overflow-x-hidden` containment; scaled page padding and section spacing |
+| Responsive forms | Full-width inputs on small screens; stacked submit/cancel buttons; `h-10` touch targets on mobile |
+| Responsive dashboard | Stacked summary cards on mobile; responsive chart heights and compact axis/legend sizing |
+| Responsive transactions | Wrapping filter controls; card-based transaction list below `lg`; table view at `lg+` |
+| Responsive budgets | Single-column card grid on mobile; responsive progress bars and edit dialogs |
+| Tablet support | Intermediate breakpoints (`sm`, `md`) for grids, spacing, and two-column form layouts |
+| Touch usability | Larger icon buttons in navigation and action rows; full-width pagination buttons on mobile |
+
+**Mobile navigation**
+- `AppShell` shows a mobile header with hamburger button below `lg`
+- Slide-out drawer reuses `SidebarNavContent` with close button and route-change auto-close
+- Desktop sidebar (`w-64`, full viewport height) unchanged at `lg+`
+
+**Responsive layouts**
+- Page content padding: `px-4 py-6` mobile → `sm:px-6 sm:py-8` → `lg:px-8 lg:py-8` desktop
+- Section spacing: `space-y-5` mobile → `sm:space-y-6` → `lg:space-y-8` desktop
+- Grid children use `[&>*]:min-w-0` to prevent card overflow
+
+**Responsive forms**
+- Create/edit forms on transactions and budgets: single-column on mobile, two-column at `sm+`
+- Select triggers default to `w-full min-w-0`
+- Edit dialogs use `DialogShell` with `max-h-[calc(100dvh-2rem)]` and vertical scroll
+
+**Responsive dashboard**
+- Summary cards stack vertically on mobile; `sm:grid-cols-2`, `lg:grid-cols-3` on larger screens
+- Charts use `ResponsiveContainer` with scaled heights and compact tick/legend sizing below `lg`
+- Budget progress and recent transaction widgets wrap content and truncate long text
+
+**Responsive transactions**
+- Filter row stacks on mobile; search spans full width
+- Transaction list renders stacked cards below `lg`; existing table preserved at `lg+`
+- Pagination buttons full-width on mobile in a two-column grid
+
+**Responsive budgets**
+- Budget cards in responsive grid (`grid-cols-1` → `sm:grid-cols-2` → `lg:grid-cols-3`)
+- Progress bars use `overflow-hidden` tracks; category and amount rows wrap on narrow screens
+- Create and edit budget dialogs match transaction dialog responsive patterns
+
+**Authentication and 404**
+- Login and register pages: centered layout, `max-w-md`, responsive typography and touch-friendly inputs/buttons
+- 404 page: scaled heading (`text-6xl` → `lg:text-8xl`), stacked full-width action buttons on mobile
+
+**QA pass**
+- Full responsive review across all pages at 320–1440px widths
+- Horizontal scrolling, clipped dialogs/charts, and inconsistent breakpoints addressed
+- Frontend build verified after changes
 
 ### HTTPS deployment (M15)
 
@@ -275,6 +334,7 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 │   ├── Dockerfile
 │   ├── app/                    layout, login, register, (main) pages, /health, not-found
 │   ├── components/             auth, budgets, dashboard, layout, transactions, ui
+│   ├── hooks/                  use-media-query
 │   └── lib/                    api, auth, format, types
 ├── backend/
 │   ├── Dockerfile
@@ -326,8 +386,9 @@ npm run dev
 3. Use search, type/category filters, and pagination on `/transactions`
 4. Create budgets on `/budgets`; verify progress updates
 5. Open `/dashboard` — summary cards, top 5 budgets, 5 recent transactions, charts
-6. Confirm sidebar spans full viewport height
+6. Confirm sidebar spans full viewport height at `lg+`; hamburger navigation works below `lg`
 7. Sign in as a second user — confirm data isolation
+8. Resize browser to 320px, 768px, and 1440px — confirm no horizontal scrolling on dashboard, transactions, budgets, login, and 404
 
 ---
 
@@ -336,4 +397,3 @@ npm run dev
 1. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
 2. Alembic migrations — replace manual production schema provisioning
 3. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
-4. Mobile responsiveness — current application is desktop-focused; responsive design for phones and tablets is a planned enhancement after the current production milestones
