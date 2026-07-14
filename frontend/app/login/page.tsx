@@ -11,7 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/lib/api";
-import { setAuth } from "@/lib/auth";
 import { Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,8 +29,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const tokenResponse = await login({ email, password });
-      setAuth(tokenResponse.access_token, email);
+      await login({ email, password });
       router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

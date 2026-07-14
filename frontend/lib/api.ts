@@ -1,4 +1,3 @@
-import { getToken } from "@/lib/auth";
 import type {
   Budget,
   BudgetCreate,
@@ -6,7 +5,6 @@ import type {
   BudgetUpdate,
   DashboardData,
   LoginRequest,
-  TokenResponse,
   Transaction,
   TransactionCreate,
   TransactionListParams,
@@ -53,13 +51,7 @@ async function authFetch(
   path: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Not authenticated");
-  }
-
   const headers = new Headers(options.headers);
-  headers.set("Authorization", `Bearer ${token}`);
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -92,14 +84,32 @@ export async function register(data: UserCreate): Promise<User> {
   return handleResponse<User>(response);
 }
 
-export async function login(data: LoginRequest): Promise<TokenResponse> {
+export async function login(data: LoginRequest): Promise<void> {
   const response = await fetch(`${API_URL}/auth/login`, {
     ...defaultFetchOptions,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  return handleResponse<TokenResponse>(response);
+
+  if (!response.ok) {
+    await handleResponse(response);
+  }
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch(`${API_URL}/auth/logout`, {
+    ...defaultFetchOptions,
+    method: "POST",
+  });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  if (!response.ok) {
+    await handleResponse(response);
+  }
 }
 
 export async function getCurrentUser(): Promise<User> {

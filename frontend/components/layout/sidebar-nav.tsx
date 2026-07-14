@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { clearAuth, getEmail, setAuth, getToken } from "@/lib/auth";
-import { getCurrentUser } from "@/lib/api";
+import { clearAuth } from "@/lib/auth";
+import { getCurrentUser, logout } from "@/lib/api";
 import {
   ArrowLeftRight,
   LayoutDashboard,
@@ -37,19 +37,20 @@ export function SidebarNavContent({ onNavigate, onClose }: SidebarNavContentProp
       try {
         const user = await getCurrentUser();
         setEmail(user.email);
-        const token = getToken();
-        if (token) {
-          setAuth(token, user.email);
-        }
       } catch {
-        setEmail(getEmail());
+        setEmail(null);
       }
     }
 
     loadUser();
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // Continue clearing client state even if the API call fails.
+    }
     clearAuth();
     onNavigate?.();
     router.replace("/login");

@@ -64,11 +64,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-}
-
 export interface Budget {
   id: number;
   user_id: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { isAuthenticated } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -13,11 +13,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-      return;
+    let cancelled = false;
+
+    async function checkSession() {
+      try {
+        await getCurrentUser();
+        if (!cancelled) {
+          setIsReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          router.replace("/login");
+        }
+      }
     }
-    setIsReady(true);
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!isReady) {
