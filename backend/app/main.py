@@ -41,8 +41,11 @@ async def lifespan(app: FastAPI):
     validate_settings()
     verify_database_connection()
     logger.info(
-        "CORS origins: %s | Cookie secure: %s | Cookie SameSite: %s",
+        "CORS origins: %s | Cookie name: %s | Cookie domain: %s | "
+        "Cookie secure: %s | Cookie SameSite: %s",
         ", ".join(settings.CORS_ORIGINS),
+        settings.ACCESS_TOKEN_COOKIE_NAME,
+        settings.COOKIE_DOMAIN or "(host-only)",
         settings.COOKIE_SECURE,
         settings.COOKIE_SAMESITE,
     )

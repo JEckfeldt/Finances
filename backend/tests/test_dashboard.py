@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from tests.conftest import auth_headers, create_transaction
+from tests.conftest import bearer_headers, create_transaction
 
 
 def _current_month_date(day: int = 8) -> str:
@@ -40,7 +40,7 @@ def test_dashboard_balance_is_all_time(client, user_a):
         transaction_date=_current_month_date(),
     )
 
-    response = client.get("/dashboard", headers=auth_headers(token))
+    response = client.get("/dashboard", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     assert Decimal(response.json()["current_balance"]) == Decimal("700.00")
@@ -76,7 +76,7 @@ def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
         transaction_date=_current_month_date(),
     )
 
-    response = client.get("/dashboard", headers=auth_headers(token))
+    response = client.get("/dashboard", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     summary = response.json()["monthly_summary"]
@@ -96,7 +96,7 @@ def test_dashboard_recent_transactions_limited_to_five(client, user_a):
             transaction_date=_current_month_date(day=min(index + 1, 28)),
         )
 
-    response = client.get("/dashboard", headers=auth_headers(token))
+    response = client.get("/dashboard", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     assert len(response.json()["recent_transactions"]) == 5
@@ -117,7 +117,7 @@ def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a)
     for category, limit_amount, spent_amount in budgets:
         client.post(
             "/budgets",
-            headers=auth_headers(token),
+            headers=bearer_headers(client, token),
             json={"category": category, "limit_amount": limit_amount},
         )
         create_transaction(
@@ -129,7 +129,7 @@ def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a)
             transaction_date=_current_month_date(),
         )
 
-    response = client.get("/dashboard", headers=auth_headers(token))
+    response = client.get("/dashboard", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     overview = response.json()["budget_overview"]

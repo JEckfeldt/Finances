@@ -1,8 +1,9 @@
 from sqlalchemy import select
 
 from app.core.auth import verify_password
+from app.core.config import settings
 from app.models.user import User
-from tests.conftest import auth_headers, register_user
+from tests.conftest import bearer_headers, register_user
 
 
 def test_register_success(client):
@@ -57,6 +58,50 @@ def test_login_success_returns_token(client):
     assert data["token_type"] == "bearer"
 
 
+def test_login_sets_httponly_access_token_cookie(client):
+    register_user(client, "cookie-login@example.com")
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "cookie-login@example.com", "password": "password123"},
+    )
+
+    assert response.status_code == 200
+    set_cookie = response.headers.get("set-cookie", "")
+    assert f"{settings.ACCESS_TOKEN_COOKIE_NAME}=" in set_cookie
+    assert "httponly" in set_cookie.lower()
+    assert "path=/" in set_cookie.lower()
+
+
+def test_protected_route_accepts_cookie_auth(client):
+    register_user(client, "cookie-auth@example.com")
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "cookie-auth@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+
+    response = client.get("/auth/me")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "cookie-auth@example.com"
+
+
+def test_logout_clears_authentication_cookie(client):
+    register_user(client, "logout@example.com")
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "logout@example.com", "password": "password123"},
+    )
+    assert login_response.status_code == 200
+    assert client.get("/auth/me").status_code == 200
+
+    logout_response = client.post("/auth/logout")
+
+    assert logout_response.status_code == 204
+    assert client.get("/auth/me").status_code == 401
+
+
 def test_login_invalid_password_rejected(client):
     register_user(client, "bad-password@example.com")
 
@@ -88,7 +133,7 @@ def test_protected_route_requires_authentication(client):
 def test_protected_route_accepts_valid_jwt(client, user_a):
     _, token = user_a
 
-    response = client.get("/auth/me", headers=auth_headers(token))
+    response = client.get("/auth/me", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     assert response.json()["email"] == "user-a@example.com"

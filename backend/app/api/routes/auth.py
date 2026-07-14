@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import create_access_token, get_current_user, hash_password, verify_password
+from app.core.cookies import clear_access_token_cookie, set_access_token_cookie
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserResponse
@@ -30,17 +32,26 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(credentials: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def login(credentials: LoginRequest, db: Session = Depends(get_db)) -> JSONResponse:
     user = db.scalar(select(User).where(User.email == credentials.email))
     if user is None or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = create_access_token(user.id)
-    return TokenResponse(access_token=access_token)
+    token_response = TokenResponse(access_token=access_token)
+    response = JSONResponse(content=token_response.model_dump())
+    set_access_token_cookie(response, access_token)
+    return response
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout() -> Response:
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    clear_access_token_cookie(response)
+    return response
 
 
 @router.get("/me", response_model=UserResponse)

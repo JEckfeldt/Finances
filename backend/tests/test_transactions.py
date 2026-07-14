@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, create_transaction
+from tests.conftest import bearer_headers, create_transaction
 
 
 def test_create_transaction(client, user_a):
@@ -16,7 +16,7 @@ def test_list_transactions(client, user_a):
     create_transaction(client, token, description="First")
     create_transaction(client, token, description="Second")
 
-    response = client.get("/transactions", headers=auth_headers(token))
+    response = client.get("/transactions", headers=bearer_headers(client, token))
 
     assert response.status_code == 200
     data = response.json()
@@ -30,7 +30,7 @@ def test_update_transaction(client, user_a):
 
     response = client.put(
         f"/transactions/{transaction['id']}",
-        headers=auth_headers(token),
+        headers=bearer_headers(client, token),
         json={
             "description": "Updated",
             "amount": "75.00",
@@ -51,11 +51,11 @@ def test_delete_transaction(client, user_a):
 
     delete_response = client.delete(
         f"/transactions/{transaction['id']}",
-        headers=auth_headers(token),
+        headers=bearer_headers(client, token),
     )
     assert delete_response.status_code == 204
 
-    list_response = client.get("/transactions", headers=auth_headers(token))
+    list_response = client.get("/transactions", headers=bearer_headers(client, token))
     assert list_response.json()["total_count"] == 0
 
 
@@ -90,13 +90,13 @@ def test_user_cannot_access_other_users_transaction(client, user_a, user_b):
     _, token_b = user_b
     transaction = create_transaction(client, token_a, description="Private")
 
-    get_response = client.get("/transactions", headers=auth_headers(token_b))
+    get_response = client.get("/transactions", headers=bearer_headers(client, token_b))
     assert get_response.status_code == 200
     assert get_response.json()["total_count"] == 0
 
     update_response = client.put(
         f"/transactions/{transaction['id']}",
-        headers=auth_headers(token_b),
+        headers=bearer_headers(client, token_b),
         json={
             "description": "Hacked",
             "amount": "1.00",
@@ -109,9 +109,9 @@ def test_user_cannot_access_other_users_transaction(client, user_a, user_b):
 
     delete_response = client.delete(
         f"/transactions/{transaction['id']}",
-        headers=auth_headers(token_b),
+        headers=bearer_headers(client, token_b),
     )
     assert delete_response.status_code == 404
 
-    still_there = client.get("/transactions", headers=auth_headers(token_a))
+    still_there = client.get("/transactions", headers=bearer_headers(client, token_a))
     assert still_there.json()["total_count"] == 1

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Retained for frontend Iteration 2 compatibility; removed in M17 Iteration 3.
 security = HTTPBearer(auto_error=False)
 
 
@@ -39,34 +40,39 @@ def decode_access_token(token: str) -> int:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
             )
         return int(subject)
     except (JWTError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
 
-def get_current_user(
+def get_access_token(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> str:
+    cookie_token = request.cookies.get(settings.ACCESS_TOKEN_COOKIE_NAME)
+    if cookie_token:
+        return cookie_token
+    if credentials is not None:
+        return credentials.credentials
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+    )
+
+
+def get_current_user(
+    token: Annotated[str, Depends(get_access_token)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user_id = decode_access_token(credentials.credentials)
+    user_id = decode_access_token(token)
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     return user

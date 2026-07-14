@@ -37,6 +37,9 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
         os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7))
     )
+    ACCESS_TOKEN_COOKIE_NAME: str = os.getenv(
+        "ACCESS_TOKEN_COOKIE_NAME", "access_token"
+    ).strip()
     CORS_ORIGINS: list[str] = [
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
@@ -45,6 +48,7 @@ class Settings:
     COOKIE_SECURE: bool = _env_bool("COOKIE_SECURE", _default_cookie_secure())
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax").strip().lower()
     COOKIE_HTTPONLY: bool = _env_bool("COOKIE_HTTPONLY", True)
+    COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN", "").strip()
 
     @property
     def is_production(self) -> bool:
@@ -81,6 +85,21 @@ def validate_settings() -> None:
             "COOKIE_SAMESITE must be one of: lax, strict, none"
         )
 
+    if not settings.ACCESS_TOKEN_COOKIE_NAME:
+        errors.append("ACCESS_TOKEN_COOKIE_NAME must not be empty")
+
+    if settings.COOKIE_SAMESITE == "none" and not settings.COOKIE_SECURE:
+        errors.append("COOKIE_SECURE must be true when COOKIE_SAMESITE is none")
+
+    if settings.COOKIE_DOMAIN:
+        domain = settings.COOKIE_DOMAIN
+        if domain.startswith("."):
+            domain = domain[1:]
+        if not domain or "." not in domain:
+            errors.append(
+                "COOKIE_DOMAIN must be a valid domain (e.g. .example.com)"
+            )
+
     if settings.is_production:
         for origin in settings.CORS_ORIGINS:
             if not origin.startswith("https://"):
@@ -90,6 +109,11 @@ def validate_settings() -> None:
 
         if not settings.COOKIE_SECURE:
             errors.append("COOKIE_SECURE must be true in production")
+
+        if not settings.COOKIE_DOMAIN:
+            errors.append(
+                "COOKIE_DOMAIN is required in production for cross-subdomain cookies"
+            )
 
     if errors:
         for error in errors:

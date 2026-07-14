@@ -99,11 +99,21 @@ def login_user(
         json={"email": email, "password": password},
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    token = response.json()["access_token"]
+    # login() sets a session cookie; helpers that use Bearer must not inherit it.
+    client.cookies.clear()
+    return token
 
 
 def auth_headers(token: str) -> dict[str, str]:
+    """Bearer header auth — retained for transition until M17 Iteration 3."""
     return {"Authorization": f"Bearer {token}"}
+
+
+def bearer_headers(client: TestClient, token: str) -> dict[str, str]:
+    """Bearer auth with cookies cleared so cookie-first auth does not override."""
+    client.cookies.clear()
+    return auth_headers(token)
 
 
 def create_user_with_token(
@@ -128,7 +138,7 @@ def create_transaction(
 ) -> dict:
     response = client.post(
         "/transactions",
-        headers=auth_headers(token),
+        headers=bearer_headers(client, token),
         json={
             "description": description,
             "amount": amount,
