@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from tests.conftest import bearer_headers, create_transaction
+from tests.conftest import create_transaction
 
 
 def _current_month_date(day: int = 8) -> str:
@@ -20,10 +20,8 @@ def _previous_month_date() -> str:
 
 
 def test_dashboard_balance_is_all_time(client, user_a):
-    _, token = user_a
     create_transaction(
         client,
-        token,
         description="Salary",
         amount="1000.00",
         transaction_type="income",
@@ -32,7 +30,6 @@ def test_dashboard_balance_is_all_time(client, user_a):
     )
     create_transaction(
         client,
-        token,
         description="Groceries",
         amount="300.00",
         transaction_type="expense",
@@ -40,17 +37,15 @@ def test_dashboard_balance_is_all_time(client, user_a):
         transaction_date=_current_month_date(),
     )
 
-    response = client.get("/dashboard", headers=bearer_headers(client, token))
+    response = client.get("/dashboard")
 
     assert response.status_code == 200
     assert Decimal(response.json()["current_balance"]) == Decimal("700.00")
 
 
 def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
-    _, token = user_a
     create_transaction(
         client,
-        token,
         description="Current income",
         amount="1000.00",
         transaction_type="income",
@@ -59,7 +54,6 @@ def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
     )
     create_transaction(
         client,
-        token,
         description="Old income",
         amount="500.00",
         transaction_type="income",
@@ -68,7 +62,6 @@ def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
     )
     create_transaction(
         client,
-        token,
         description="Current expense",
         amount="100.00",
         transaction_type="expense",
@@ -76,7 +69,7 @@ def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
         transaction_date=_current_month_date(),
     )
 
-    response = client.get("/dashboard", headers=bearer_headers(client, token))
+    response = client.get("/dashboard")
 
     assert response.status_code == 200
     summary = response.json()["monthly_summary"]
@@ -85,26 +78,21 @@ def test_dashboard_monthly_summary_uses_current_month_only(client, user_a):
 
 
 def test_dashboard_recent_transactions_limited_to_five(client, user_a):
-    _, token = user_a
-
     for index in range(6):
         create_transaction(
             client,
-            token,
             description=f"Transaction {index}",
             amount="10.00",
             transaction_date=_current_month_date(day=min(index + 1, 28)),
         )
 
-    response = client.get("/dashboard", headers=bearer_headers(client, token))
+    response = client.get("/dashboard")
 
     assert response.status_code == 200
     assert len(response.json()["recent_transactions"]) == 5
 
 
 def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a):
-    _, token = user_a
-
     budgets = [
         ("Low", "1000.00", "10.00"),
         ("Medium", "1000.00", "500.00"),
@@ -117,19 +105,17 @@ def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a)
     for category, limit_amount, spent_amount in budgets:
         client.post(
             "/budgets",
-            headers=bearer_headers(client, token),
             json={"category": category, "limit_amount": limit_amount},
         )
         create_transaction(
             client,
-            token,
             description=f"{category} spend",
             amount=spent_amount,
             category=category,
             transaction_date=_current_month_date(),
         )
 
-    response = client.get("/dashboard", headers=bearer_headers(client, token))
+    response = client.get("/dashboard")
 
     assert response.status_code == 200
     overview = response.json()["budget_overview"]

@@ -93,42 +93,27 @@ def login_user(
     client: TestClient,
     email: str,
     password: str = "password123",
-) -> str:
+) -> dict:
     response = client.post(
         "/auth/login",
         json={"email": email, "password": password},
     )
     assert response.status_code == 200
-    token = response.json()["access_token"]
-    # login() sets a session cookie; helpers that use Bearer must not inherit it.
-    client.cookies.clear()
-    return token
+    return response.json()
 
 
-def auth_headers(token: str) -> dict[str, str]:
-    """Bearer header auth — retained for transition until M17 Iteration 3."""
-    return {"Authorization": f"Bearer {token}"}
-
-
-def bearer_headers(client: TestClient, token: str) -> dict[str, str]:
-    """Bearer auth with cookies cleared so cookie-first auth does not override."""
-    client.cookies.clear()
-    return auth_headers(token)
-
-
-def create_user_with_token(
+def create_authenticated_user(
     client: TestClient,
     email: str,
     password: str = "password123",
-) -> tuple[dict, str]:
+) -> dict:
     user = register_user(client, email, password)
-    token = login_user(client, email, password)
-    return user, token
+    login_user(client, email, password)
+    return user
 
 
 def create_transaction(
     client: TestClient,
-    token: str,
     *,
     description: str = "Test transaction",
     amount: str = "100.00",
@@ -138,7 +123,6 @@ def create_transaction(
 ) -> dict:
     response = client.post(
         "/transactions",
-        headers=bearer_headers(client, token),
         json={
             "description": description,
             "amount": amount,
@@ -152,10 +136,10 @@ def create_transaction(
 
 
 @pytest.fixture
-def user_a(client: TestClient) -> tuple[dict, str]:
-    return create_user_with_token(client, "user-a@example.com")
+def user_a(client: TestClient) -> dict:
+    return create_authenticated_user(client, "user-a@example.com")
 
 
 @pytest.fixture
-def user_b(client: TestClient) -> tuple[dict, str]:
-    return create_user_with_token(client, "user-b@example.com")
+def user_b(client: TestClient) -> dict:
+    return create_authenticated_user(client, "user-b@example.com")

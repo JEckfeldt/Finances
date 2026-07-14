@@ -3,7 +3,7 @@ from sqlalchemy import select
 from app.core.auth import verify_password
 from app.core.config import settings
 from app.models.user import User
-from tests.conftest import bearer_headers, register_user
+from tests.conftest import register_user
 
 
 def test_register_success(client):
@@ -44,7 +44,7 @@ def test_register_stores_hashed_password(client, db_session):
     assert verify_password("password123", user.hashed_password)
 
 
-def test_login_success_returns_token(client):
+def test_login_success_returns_user(client):
     register_user(client, "login@example.com")
 
     response = client.post(
@@ -54,8 +54,11 @@ def test_login_success_returns_token(client):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["access_token"]
-    assert data["token_type"] == "bearer"
+    assert data["email"] == "login@example.com"
+    assert "id" in data
+    assert "created_at" in data
+    assert "access_token" not in data
+    assert "token_type" not in data
 
 
 def test_login_sets_httponly_access_token_cookie(client):
@@ -130,10 +133,19 @@ def test_protected_route_requires_authentication(client):
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_protected_route_accepts_valid_jwt(client, user_a):
-    _, token = user_a
+def test_bearer_token_is_not_accepted(client, user_a):
+    client.cookies.clear()
+    response = client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer invalid-token"},
+    )
 
-    response = client.get("/auth/me", headers=bearer_headers(client, token))
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_protected_route_accepts_cookie_session(client, user_a):
+    response = client.get("/auth/me")
 
     assert response.status_code == 200
-    assert response.json()["email"] == "user-a@example.com"
+    assert response.json()["email"] == user_a["email"]

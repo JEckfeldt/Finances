@@ -7,7 +7,7 @@ from app.core.auth import create_access_token, get_current_user, hash_password, 
 from app.core.cookies import clear_access_token_cookie, set_access_token_cookie
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserResponse
+from app.schemas.user import LoginRequest, UserCreate, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -31,7 +31,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=UserResponse)
 def login(credentials: LoginRequest, db: Session = Depends(get_db)) -> JSONResponse:
     user = db.scalar(select(User).where(User.email == credentials.email))
     if user is None or not verify_password(credentials.password, user.hashed_password):
@@ -41,8 +41,8 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)) -> JSONRespo
         )
 
     access_token = create_access_token(user.id)
-    token_response = TokenResponse(access_token=access_token)
-    response = JSONResponse(content=token_response.model_dump())
+    user_response = UserResponse.model_validate(user)
+    response = JSONResponse(content=user_response.model_dump(mode="json"))
     set_access_token_cookie(response, access_token)
     return response
 

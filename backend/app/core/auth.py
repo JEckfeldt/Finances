@@ -2,7 +2,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -12,8 +11,6 @@ from app.db.session import get_db
 from app.models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# Retained for frontend Iteration 2 compatibility; removed in M17 Iteration 3.
-security = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -49,19 +46,14 @@ def decode_access_token(token: str) -> int:
         ) from exc
 
 
-def get_access_token(
-    request: Request,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
-) -> str:
-    cookie_token = request.cookies.get(settings.ACCESS_TOKEN_COOKIE_NAME)
-    if cookie_token:
-        return cookie_token
-    if credentials is not None:
-        return credentials.credentials
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-    )
+def get_access_token(request: Request) -> str:
+    token = request.cookies.get(settings.ACCESS_TOKEN_COOKIE_NAME)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return token
 
 
 def get_current_user(

@@ -1,14 +1,11 @@
 from decimal import Decimal
 
-from tests.conftest import bearer_headers, create_transaction
+from tests.conftest import create_transaction
 
 
 def test_create_budget(client, user_a):
-    _, token = user_a
-
     response = client.post(
         "/budgets",
-        headers=bearer_headers(client, token),
         json={"category": "Food", "limit_amount": "500.00"},
     )
 
@@ -19,30 +16,25 @@ def test_create_budget(client, user_a):
 
 
 def test_list_budgets(client, user_a):
-    _, token = user_a
     client.post(
         "/budgets",
-        headers=bearer_headers(client, token),
         json={"category": "Food", "limit_amount": "500.00"},
     )
 
-    response = client.get("/budgets", headers=bearer_headers(client, token))
+    response = client.get("/budgets")
 
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
 def test_update_budget(client, user_a):
-    _, token = user_a
     created = client.post(
         "/budgets",
-        headers=bearer_headers(client, token),
         json={"category": "Food", "limit_amount": "500.00"},
     ).json()
 
     response = client.put(
         f"/budgets/{created['id']}",
-        headers=bearer_headers(client, token),
         json={"category": "Groceries", "limit_amount": "600.00"},
     )
 
@@ -52,42 +44,35 @@ def test_update_budget(client, user_a):
 
 
 def test_delete_budget(client, user_a):
-    _, token = user_a
     created = client.post(
         "/budgets",
-        headers=bearer_headers(client, token),
         json={"category": "Food", "limit_amount": "500.00"},
     ).json()
 
-    delete_response = client.delete(
-        f"/budgets/{created['id']}",
-        headers=bearer_headers(client, token),
-    )
+    delete_response = client.delete(f"/budgets/{created['id']}")
     assert delete_response.status_code == 204
 
-    list_response = client.get("/budgets", headers=bearer_headers(client, token))
+    list_response = client.get("/budgets")
     assert list_response.json() == []
 
 
 def test_budget_progress_case_insensitive(client, user_a):
-    _, token = user_a
     client.post(
         "/budgets",
-        headers=bearer_headers(client, token),
         json={"category": "Food", "limit_amount": "500.00"},
     )
 
     create_transaction(
-        client, token, amount="100.00", category="food", description="A"
+        client, amount="100.00", category="food", description="A"
     )
     create_transaction(
-        client, token, amount="50.00", category="FOOD", description="B"
+        client, amount="50.00", category="FOOD", description="B"
     )
     create_transaction(
-        client, token, amount="25.00", category=" Food ", description="C"
+        client, amount="25.00", category=" Food ", description="C"
     )
 
-    response = client.get("/budgets/progress", headers=bearer_headers(client, token))
+    response = client.get("/budgets/progress")
 
     assert response.status_code == 200
     progress = response.json()[0]
