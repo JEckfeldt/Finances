@@ -49,6 +49,10 @@ class Settings:
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax").strip().lower()
     COOKIE_HTTPONLY: bool = _env_bool("COOKIE_HTTPONLY", True)
     COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN", "").strip()
+    AI_ENABLED: bool = _env_bool("AI_ENABLED", False)
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "gemini").strip().lower()
+    AI_MODEL: str = os.getenv("AI_MODEL", "gemini-2.0-flash").strip()
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
 
     @property
     def is_production(self) -> bool:
@@ -114,6 +118,14 @@ def validate_settings() -> None:
             errors.append(
                 "COOKIE_DOMAIN is required in production for cross-subdomain cookies"
             )
+
+    if settings.AI_ENABLED:
+        if settings.AI_PROVIDER != "gemini":
+            errors.append("AI_PROVIDER must be 'gemini' when AI is enabled")
+        if not settings.GEMINI_API_KEY:
+            errors.append("GEMINI_API_KEY is required when AI_ENABLED is true")
+        if not settings.AI_MODEL:
+            errors.append("AI_MODEL must not be empty when AI_ENABLED is true")
 
     if errors:
         for error in errors:
