@@ -32,4 +32,10 @@ def create_natural_language_action(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AIActionResponse:
-    return process_natural_language_action(db, current_user.id, body.message)
+    try:
+        return process_natural_language_action(db, current_user.id, body.message)
+    except AIServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc

@@ -5,6 +5,7 @@ import pytest
 from google.genai.errors import ClientError, ServerError
 
 from app.schemas.ai import AIGenerateTextResponse
+from app.services.ai_action_service import parse_action_json
 from app.services.ai_service import AIServiceError, generate_text, public_ai_error_message
 from tests.conftest import create_transaction, login_user
 
@@ -210,7 +211,7 @@ def test_action_requires_authentication(client):
     assert response.json()["detail"] == "Not authenticated"
 
 
-def test_authenticated_user_can_request_action(client, user_a):
+def test_action_returns_disabled_response_when_ai_disabled(client, user_a):
     response = client.post(
         "/ai/action",
         json={"message": "I spent $45 on dinner"},
@@ -218,5 +219,209 @@ def test_authenticated_user_can_request_action(client, user_a):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "not_implemented"
-    assert data["message"] == "Natural language actions are not yet implemented."
+    assert data["enabled"] is False
+    assert data["status"] == "disabled"
+    assert data["action"] is None
+    assert "disabled" in data["message"].lower()
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_parses_create_transaction(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text=(
+            '{"intent": "create_transaction", "amount": 45.67, "type": "expense", '
+            '"category": "Dining", "description": "Dinner", "date": "today"}'
+        ),
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["enabled"] is True
+    assert data["status"] == "success"
+    assert data["action"]["intent"] == "create_transaction"
+    assert data["action"]["amount"] == "45.67"
+    assert data["action"]["type"] == "expense"
+    assert data["action"]["category"] == "Dining"
+    assert data["action"]["description"] == "Dinner"
+    assert data["action"]["date"] == "today"
+    mock_generate_text.assert_called_once()
+    prompt = mock_generate_text.call_args.args[0]
+    assert "ONLY valid JSON" in prompt
+    assert "create_transaction" in prompt
+    assert "I spent $45 on dinner" in prompt
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_parses_create_budget(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "create_budget", "category": "Gas", "limit_amount": 500}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Set a $500 gas budget"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["action"]["intent"] == "create_budget"
+    assert data["action"]["category"] == "Gas"
+    assert data["action"]["limit_amount"] == "500"
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_parses_unknown_intent(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "unknown", "reason": "Message is a general question"}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "How am I doing this month?"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["action"]["intent"] == "unknown"
+    assert data["action"]["reason"] == "Message is a general question"
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_maps_unsupported_intent_to_unknown(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "delete_transaction", "id": 1}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Delete my last transaction"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["action"]["intent"] == "unknown"
+    assert "Unsupported intent" in data["action"]["reason"]
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_handles_malformed_json(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text="not valid json",
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "parse_error"
+    assert data["action"] is None
+    assert "parse" in data["message"].lower()
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_handles_invalid_action_shape(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "create_transaction", "amount": -5, "type": "expense"}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent -5 on dinner"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "parse_error"
+    assert data["action"] is None
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_strips_json_code_fence(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text=(
+            '```json\n{"intent": "create_budget", "category": "Food", '
+            '"limit_amount": 300}\n```'
+        ),
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Budget $300 for food"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["action"]["intent"] == "create_budget"
+    assert data["action"]["category"] == "Food"
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_gemini_failure_returns_service_unavailable(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.side_effect = AIServiceError(
+        "AI service is temporarily unavailable. Please try again later."
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "AI service is temporarily unavailable. Please try again later."
+    )
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_empty_response_returns_service_unavailable(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.return_value = AIGenerateTextResponse(enabled=True, text="")
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 503
+    assert "empty response" in response.json()["detail"].lower()
+
+
+def test_parse_action_json_create_transaction():
+    action = parse_action_json(
+        '{"intent": "create_transaction", "amount": 45.67, "type": "expense", '
+        '"category": "Dining", "description": "Dinner", "date": "today"}'
+    )
+
+    assert action.intent == "create_transaction"
+    assert str(action.amount) == "45.67"
+    assert action.type == "expense"
+    assert action.category == "Dining"
+
+
+def test_parse_action_json_unsupported_intent():
+    action = parse_action_json('{"intent": "transfer_funds"}')
+
+    assert action.intent == "unknown"
+    assert "Unsupported intent" in action.reason
