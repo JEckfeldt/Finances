@@ -16,6 +16,8 @@ os.environ["APP_ENV"] = "development"
 os.environ["SECRET_KEY"] = "test-secret-key-with-at-least-32-characters"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["AI_ENABLED"] = "false"
+os.environ["GEMINI_API_KEY"] = ""
 
 from app.db.base import Base  # noqa: E402
 from app.db.session import SessionLocal, engine, get_db  # noqa: E402

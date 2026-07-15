@@ -15,7 +15,15 @@ class AIGenerateTextResponse(BaseModel):
     message: str | None = None
 
 
+class AIInsightsResponse(BaseModel):
+    """Personalized financial insights for the authenticated user."""
+
+    enabled: bool
+    insights: str | None = None
+    message: str | None = None
+
+
 class AIErrorResponse(BaseModel):
-    """Standard error shape for future AI endpoints."""
+    """Standard error shape for AI endpoints."""
 
     detail: str
