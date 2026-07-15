@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 12, 2026 (Mobile responsiveness)
+Last updated: July 14, 2026 (Authentication hardening — M17)
 
-**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 16 milestones complete. Frontend supports responsive layouts for phones, tablets, and desktops.
+**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 17 milestones complete. Authentication uses httpOnly Secure cookies (no client-side JWT storage). Frontend supports responsive layouts for phones, tablets, and desktops.
 
 ---
 
@@ -42,6 +42,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M14 — UX polish | Complete | Custom 404 page consistent with the application's design system |
 | M15 — HTTPS deployment | Complete | Custom domains, ACM certificates, ALB TLS, HTTPS CI/CD verification |
 | M16 — Mobile responsiveness | Complete | Responsive layouts, mobile navigation, touch-friendly forms, page-level QA across all routes |
+| M17 — Authentication hardening | Complete | httpOnly Secure cookies, cookie-only backend auth, `/auth/me` session validation, backend logout |
 
 ---
 
@@ -51,10 +52,10 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - Repository layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16, FastAPI backend, Next.js frontend (all with health checks)
-- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`, `TEST_DATABASE_URL`)
+- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `ACCESS_TOKEN_COOKIE_NAME`, `COOKIE_DOMAIN`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`, `TEST_DATABASE_URL`)
 - HTTPS-ready configuration: production URLs require `https://`; local development uses HTTP
-- CORS credentialed requests enabled (`allow_credentials=True`) for future cookie-based auth
-- Cookie security flags environment-driven (`backend/app/core/cookies.py`)
+- CORS credentialed requests enabled (`allow_credentials=True`) for cookie-based authentication
+- Cookie helpers for JWT issuance and logout (`backend/app/core/cookies.py`)
 - Production Dockerfiles with health checks and startup validation
 - Production startup skips automatic schema changes (`APP_ENV=production`)
 - Startup validation for required config and database connectivity
@@ -70,10 +71,10 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - shadcn/ui, React Hook Form + Zod, Lucide React, Recharts
 - Off-white / soft-green theme; Geist Sans via `next/font`
 - Full-height sidebar app shell at `lg` (1024px+); hamburger menu with slide-out drawer below `lg`
-- Authenticated routes behind `AuthGuard`
+- Authenticated routes behind `AuthGuard` (validates session via `GET /auth/me`)
 - Responsive page layouts with scaled spacing (`space-y-5` mobile → `lg:space-y-8` desktop)
-- Login and registration pages; JWT stored in `localStorage` (httpOnly cookie migration planned)
-- API client sends `credentials: "include"` on all requests
+- Login and registration pages; JWT stored in httpOnly Secure cookies (not accessible to JavaScript)
+- API client uses `credentials: "include"` on all requests; no `Authorization` headers
 - Loading skeletons and error states with retry
 - Health endpoint: `GET /health` (public, no auth; used by ALB target group)
 - Custom 404 page (`app/not-found.tsx`) matching app design system
@@ -84,7 +85,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 | Route | Status | Details |
 |-------|--------|---------|
-| `/login` | Functional | Email/password form, stores JWT, redirects to dashboard; responsive layout |
+| `/login` | Functional | Email/password form; backend sets httpOnly cookie; redirects to dashboard; responsive layout |
 | `/register` | Functional | Email/password registration (min 8 chars), redirects to login; responsive layout |
 | `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; responsive grids and charts |
 | `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination; card layout below `lg`, table at `lg+` |
@@ -96,7 +97,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - FastAPI with CORS, SQLAlchemy 2.x, Pydantic schemas
 - Health endpoint: `GET /health`
-- Password hashing (passlib + bcrypt), JWT auth (`python-jose`)
+- Password hashing (passlib + bcrypt), JWT auth via httpOnly cookies (`python-jose`)
+- `POST /auth/logout` clears authentication cookie
 - All data routes protected and scoped to authenticated user
 - Category normalization (trim + title case); case-insensitive budget matching
 - Lightweight startup migrations for legacy databases
@@ -116,7 +118,8 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 |--------|----------|-------|
 | GET | `/health` | Health check |
 | POST | `/auth/register` | Creates user |
-| POST | `/auth/login` | Returns JWT |
+| POST | `/auth/login` | Sets httpOnly cookie; returns user info |
+| POST | `/auth/logout` | Clears authentication cookie |
 | GET | `/auth/me` | Current user info |
 | GET | `/transactions` | Paginated; search, type/category filters, sort |
 | GET | `/transactions/categories` | Distinct categories for filters |
@@ -226,7 +229,7 @@ Production URLs:
 
 | Module | Coverage |
 |--------|----------|
-| `test_auth.py` | Registration, login, password hashing, JWT protected routes |
+| `test_auth.py` | Registration, login, cookie auth, logout, password hashing, protected routes |
 | `test_transactions.py` | CRUD, category normalization, user isolation |
 | `test_budgets.py` | CRUD, case-insensitive progress |
 | `test_dashboard.py` | Balance aggregation, monthly filtering, widget limits |
@@ -306,6 +309,20 @@ Current production state:
 
 See [README.md](./README.md#continuous-integration) and [README.md](./README.md#continuous-deployment) for details.
 
+### Authentication hardening (M17)
+
+Production authentication uses httpOnly Secure cookies instead of client-side JWT storage.
+
+| Area | Implementation |
+|------|----------------|
+| Login | Backend validates credentials, creates JWT, sets `access_token` httpOnly cookie |
+| Session validation | `AuthGuard` and sidebar call `GET /auth/me` with `credentials: "include"` |
+| API requests | Browser sends cookie automatically; no `Authorization: Bearer` header |
+| Logout | `POST /auth/logout` clears cookie; frontend redirects to `/login` |
+| Backend auth | `get_current_user()` reads JWT exclusively from cookie |
+| Cross-subdomain | Production `COOKIE_DOMAIN=.jakesfinancetracker.com` for `app.*` → `api.*` |
+| Cookie flags | `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY` env-driven |
+
 ---
 
 ## What Is NOT Implemented
@@ -314,7 +331,7 @@ See [README.md](./README.md#continuous-integration) and [README.md](./README.md#
 - Category autocomplete (intentionally removed; free-text only)
 - Alembic migrations (production schema changes are manual when `APP_ENV=production`)
 - Next.js middleware for server-side route protection
-- Token refresh / rotation; httpOnly cookie storage
+- Token refresh / rotation
 - Dedicated category database table
 - Advanced dashboard analytics (goals, forecasts, etc.)
 - Dashboard date range selector UI (removed; backend params remain)
@@ -394,6 +411,6 @@ npm run dev
 
 ## Suggested Next Steps
 
-1. Auth hardening — migrate JWT to httpOnly Secure cookies, token refresh, Next.js middleware
-2. Alembic migrations — replace manual production schema provisioning
-3. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+1. Alembic migrations — replace manual production schema provisioning
+2. CD hardening — GitHub OIDC instead of long-lived AWS access keys; deployment approval gates
+3. Token refresh and Next.js middleware — optional auth enhancements

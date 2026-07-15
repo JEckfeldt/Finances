@@ -14,7 +14,7 @@ A full-stack personal finance application for tracking transactions, managing bu
 
 ## Features
 
-- User registration and JWT authentication with per-user data isolation
+- User registration and JWT authentication with httpOnly Secure cookies and per-user data isolation
 - Transaction management — create, edit, delete, search, filter, and paginate
 - Budget tracking with progress bars and case-insensitive category matching
 - Financial dashboard — balance, monthly income/expenses, spending charts, recent transactions
@@ -139,6 +139,9 @@ uvicorn app.main:app --reload
 | `NEXT_PUBLIC_API_URL` | Backend URL for frontend (build-time in Docker) |
 | `COOKIE_SECURE` | `false` locally, `true` in production |
 | `COOKIE_SAMESITE` | Cookie SameSite policy (`lax`, `strict`, `none`) |
+| `COOKIE_HTTPONLY` | `true` — JWT not readable by JavaScript |
+| `COOKIE_DOMAIN` | Empty locally; `.your-domain.com` in production for cross-subdomain cookies |
+| `ACCESS_TOKEN_COOKIE_NAME` | Cookie name for JWT (default: `access_token`) |
 | `TEST_DATABASE_URL` | Optional isolated test database |
 
 See [`.env.example`](.env.example) for development and [`.env.production.example`](.env.production.example) for production.
@@ -155,7 +158,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-24 integration tests cover auth, transactions, budgets, and dashboard endpoints. Tests use an isolated `finance_app_test` database.
+28 integration tests cover auth, transactions, budgets, and dashboard endpoints. Tests use an isolated `finance_app_test` database.
 
 ### Reproduce CI checks locally
 
@@ -216,6 +219,9 @@ The application is live on AWS with HTTPS, custom domains, and automated deploym
 | `NEXT_PUBLIC_API_URL` | Frontend build | `https://api.jakesfinancetracker.com` |
 | `COOKIE_SECURE` | Backend | `true` |
 | `COOKIE_SAMESITE` | Backend | `lax` |
+| `COOKIE_HTTPONLY` | Backend | `true` |
+| `COOKIE_DOMAIN` | Backend | `.jakesfinancetracker.com` |
+| `ACCESS_TOKEN_COOKIE_NAME` | Backend | `access_token` |
 
 Backend validates config on startup, verifies database connectivity, and exposes `GET /health` (no auth required). Frontend image must be built with `NEXT_PUBLIC_API_URL` set at build time:
 
@@ -317,6 +323,29 @@ Check CloudWatch Logs for failed task output. To retry without a new commit: **A
 
 ---
 
-## Authentication notes
+## Authentication
 
-JWT tokens are currently stored in `localStorage` and sent via `Authorization: Bearer` headers. The codebase is prepared for future httpOnly Secure cookie migration (`credentials: "include"`, `COOKIE_SECURE`, `COOKIE_SAMESITE` env vars). Token refresh is not yet implemented.
+Authentication uses stateless JWTs stored in **httpOnly Secure cookies** set by the backend. The frontend never stores, reads, or transmits JWTs manually.
+
+### How it works
+
+1. **Login** — User submits email and password. Backend validates credentials, creates a signed JWT, and sets it as an httpOnly cookie via `Set-Cookie`. The response includes user info (`id`, `email`, `created_at`) but not the token.
+2. **Authenticated requests** — The browser automatically sends the cookie on API calls when `credentials: "include"` is set. No `Authorization: Bearer` header is used.
+3. **Session validation** — `AuthGuard` calls `GET /auth/me` on mount. A 401 response redirects to `/login`.
+4. **Logout** — `POST /auth/logout` clears the authentication cookie. The frontend clears any remaining client state and redirects to `/login`.
+5. **Backend enforcement** — `get_current_user()` reads the JWT exclusively from the cookie on all protected routes. Database queries filter by `user_id` from the decoded token.
+
+### Security properties
+
+- JWT is not accessible from JavaScript (httpOnly flag)
+- `Secure` flag ensures cookies are sent only over HTTPS in production
+- `SameSite=Lax` mitigates CSRF for same-site cross-subdomain requests (`app.*` → `api.*`)
+- Production uses `COOKIE_DOMAIN=.jakesfinancetracker.com` so cookies work across frontend and API subdomains
+
+### What is not implemented
+
+- Refresh tokens or token rotation
+- OAuth / social login
+- CSRF tokens (relying on SameSite cookies)
+- Email verification or password reset flows
+- Next.js middleware for server-side route protection
