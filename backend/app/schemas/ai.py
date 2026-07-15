@@ -27,3 +27,16 @@ class AIErrorResponse(BaseModel):
     """Standard error shape for AI endpoints."""
 
     detail: str
+
+
+class AIActionRequest(BaseModel):
+    """Natural language financial action request."""
+
+    message: str = Field(..., min_length=1, max_length=32000)
+
+
+class AIActionResponse(BaseModel):
+    """Response from natural language financial action processing."""
+
+    status: str
+    message: str

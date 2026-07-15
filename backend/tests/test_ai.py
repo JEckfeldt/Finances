@@ -198,3 +198,25 @@ def test_generate_text_maps_gemini_rate_limit(mock_client_class):
         generate_text("Summarize spending")
 
     assert "rate limit" in str(exc_info.value).lower()
+
+
+def test_action_requires_authentication(client):
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_authenticated_user_can_request_action(client, user_a):
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent $45 on dinner"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "not_implemented"
+    assert data["message"] == "Natural language actions are not yet implemented."
