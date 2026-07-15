@@ -1,7 +1,11 @@
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import pytest
+from google.genai.errors import ClientError, ServerError
+
 from app.schemas.ai import AIGenerateTextResponse
+from app.services.ai_service import AIServiceError, generate_text, public_ai_error_message
 from tests.conftest import create_transaction, login_user
 
 
@@ -124,3 +128,71 @@ def test_insights_includes_budget_utilization(
     assert "Food" in prompt
     assert "125.00" in prompt
     assert "500.00" in prompt
+
+
+@patch("app.services.ai_insights_service.generate_text")
+def test_insights_gemini_failure_returns_service_unavailable(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.side_effect = AIServiceError(
+        "AI service is temporarily unavailable. Please try again later."
+    )
+
+    response = client.post("/ai/insights")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "AI service is temporarily unavailable. Please try again later."
+    )
+    assert "api" not in response.json()["detail"].lower()
+    assert "gemini" not in response.json()["detail"].lower()
+
+
+@patch("app.services.ai_insights_service.generate_text")
+def test_insights_rate_limit_failure_returns_clear_message(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.side_effect = AIServiceError(
+        "AI service rate limit exceeded. Please try again later."
+    )
+
+    response = client.post("/ai/insights")
+
+    assert response.status_code == 503
+    assert "rate limit" in response.json()["detail"].lower()
+
+
+def test_public_ai_error_message_maps_rate_limit():
+    error = ClientError(429, {"error": {"message": "quota exceeded"}}, None)
+
+    message = public_ai_error_message(error)
+
+    assert "rate limit" in message.lower()
+    assert "quota" not in message.lower()
+
+
+def test_public_ai_error_message_maps_server_error():
+    error = ServerError(503, {"error": {"message": "unavailable"}}, None)
+
+    message = public_ai_error_message(error)
+
+    assert "temporarily unavailable" in message.lower()
+
+
+@patch("app.services.ai_service.settings.AI_ENABLED", True)
+@patch("app.services.ai_service.settings.GEMINI_API_KEY", "test-key")
+@patch("app.services.ai_service.settings.AI_PROVIDER", "gemini")
+@patch("app.services.ai_service.settings.AI_MODEL", "gemini-2.0-flash")
+@patch("app.services.ai_service.genai.Client")
+def test_generate_text_maps_gemini_rate_limit(mock_client_class):
+    mock_client = mock_client_class.return_value
+    mock_client.models.generate_content.side_effect = ClientError(
+        429,
+        {"error": {"message": "quota exceeded"}},
+        None,
+    )
+
+    with pytest.raises(AIServiceError) as exc_info:
+        generate_text("Summarize spending")
+
+    assert "rate limit" in str(exc_info.value).lower()

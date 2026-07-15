@@ -11,6 +11,7 @@ Architecture and security:
 import logging
 
 from google import genai
+from google.genai.errors import APIError
 
 from app.core.config import settings
 from app.schemas.ai import AIGenerateTextResponse
@@ -20,6 +21,18 @@ logger = logging.getLogger(__name__)
 
 class AIServiceError(Exception):
     """Raised when an AI provider request fails."""
+
+
+def public_ai_error_message(exc: Exception) -> str:
+    """Map provider errors to safe client-facing messages."""
+    if isinstance(exc, APIError):
+        if exc.code == 429:
+            return "AI service rate limit exceeded. Please try again later."
+        if 500 <= exc.code < 600:
+            return "AI service is temporarily unavailable. Please try again later."
+        if 400 <= exc.code < 500:
+            return "AI request failed. Please try again later."
+    return "Failed to generate AI response. Please try again later."
 
 
 def generate_text(prompt: str) -> AIGenerateTextResponse:
@@ -35,10 +48,10 @@ def generate_text(prompt: str) -> AIGenerateTextResponse:
         )
 
     if settings.AI_PROVIDER != "gemini":
-        raise AIServiceError(f"Unsupported AI provider: {settings.AI_PROVIDER}")
+        raise AIServiceError("AI provider is not available")
 
     if not settings.GEMINI_API_KEY:
-        raise AIServiceError("GEMINI_API_KEY is required when AI is enabled")
+        raise AIServiceError("AI service is not configured")
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -49,10 +62,10 @@ def generate_text(prompt: str) -> AIGenerateTextResponse:
         )
     except Exception as exc:
         logger.exception("Gemini API request failed")
-        raise AIServiceError("Failed to generate AI response") from exc
+        raise AIServiceError(public_ai_error_message(exc)) from exc
 
     text = (response.text or "").strip()
     if not text:
-        raise AIServiceError("Gemini returned an empty response")
+        raise AIServiceError("AI service returned an empty response. Please try again later.")
 
     return AIGenerateTextResponse(enabled=True, text=text)

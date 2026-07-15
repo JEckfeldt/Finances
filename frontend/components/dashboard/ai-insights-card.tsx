@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RefreshCw, Sparkles } from "lucide-react";
 
 import {
   Card,
@@ -13,37 +13,65 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAIInsights } from "@/lib/api";
+import { parseInsightLines, type AIInsightStatus } from "@/lib/parse-insights";
 import type { AIInsightsResponse } from "@/lib/types";
 
-function formatInsightLines(insights: string): string[] {
-  return insights
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function stripBulletPrefix(line: string): string {
-  return line.replace(/^[-*•]\s*/, "");
+function statusMessage(status: AIInsightStatus): string | null {
+  switch (status) {
+    case "loading":
+      return "Generating insights...";
+    case "success":
+      return "Insights generated from your recent financial activity.";
+    case "disabled":
+      return null;
+    case "error":
+      return null;
+    default:
+      return null;
+  }
 }
 
 export function AIInsightsCard() {
   const [data, setData] = useState<AIInsightsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<AIInsightStatus>("loading");
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   const loadInsights = useCallback(async () => {
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    isFetchingRef.current = true;
+    setStatus("loading");
+    setError(null);
+
     try {
-      setError(null);
-      setIsLoading(true);
       const response = await getAIInsights();
+
+      if (!response.enabled) {
+        setData(response);
+        setStatus("disabled");
+        return;
+      }
+
+      if (!response.insights?.trim()) {
+        setData(response);
+        setStatus("error");
+        setError("No insights were returned. Please try again.");
+        return;
+      }
+
       setData(response);
+      setStatus("success");
     } catch (err) {
       setData(null);
+      setStatus("error");
       setError(
         err instanceof Error ? err.message : "Failed to load AI insights"
       );
     } finally {
-      setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -51,25 +79,58 @@ export function AIInsightsCard() {
     loadInsights();
   }, [loadInsights]);
 
+  const insightItems =
+    status === "success" && data?.insights
+      ? parseInsightLines(data.insights)
+      : [];
+
+  const statusLabel = statusMessage(status);
+
   return (
     <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-4 shrink-0 text-primary" />
-          AI Financial Insights
-        </CardTitle>
-        <CardDescription>
-          Personalized guidance based on your recent activity
-        </CardDescription>
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="size-4 shrink-0 text-primary" />
+            AI Financial Insights
+          </CardTitle>
+          <CardDescription>
+            Personalized guidance based on your recent activity
+          </CardDescription>
+          {statusLabel && (
+            <p
+              className={`text-xs ${
+                status === "loading"
+                  ? "text-muted-foreground"
+                  : "text-primary/80"
+              }`}
+            >
+              {statusLabel}
+            </p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-10 w-full shrink-0 sm:h-8 sm:w-auto"
+          onClick={loadInsights}
+          disabled={status === "loading"}
+        >
+          <RefreshCw
+            className={`size-4 ${status === "loading" ? "animate-spin" : ""}`}
+          />
+          Refresh Insights
+        </Button>
       </CardHeader>
       <CardContent className="min-w-0">
-        {isLoading ? (
+        {status === "loading" ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-5/6" />
             <Skeleton className="h-4 w-4/6" />
           </div>
-        ) : error ? (
+        ) : status === "error" ? (
           <div className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 px-4 py-6 text-center sm:px-6">
             <p className="text-sm font-medium text-destructive">{error}</p>
             <Button
@@ -80,18 +141,21 @@ export function AIInsightsCard() {
               Try again
             </Button>
           </div>
-        ) : data && !data.enabled ? (
+        ) : status === "disabled" ? (
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {data.message ?? "AI insights are currently unavailable."}
+            {data?.message ?? "AI insights are currently unavailable."}
           </p>
-        ) : data?.enabled && data.insights ? (
-          <ul className="space-y-2.5 text-sm leading-relaxed text-foreground">
-            {formatInsightLines(data.insights).map((line, index) => (
-              <li key={`${index}-${line}`} className="flex gap-2">
-                <span className="mt-0.5 shrink-0 text-primary">•</span>
-                <span className="min-w-0 flex-1 break-words">
-                  {stripBulletPrefix(line)}
+        ) : insightItems.length > 0 ? (
+          <ul className="space-y-3 text-sm leading-relaxed text-foreground">
+            {insightItems.map((item, index) => (
+              <li
+                key={`${index}-${item}`}
+                className="flex gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 sm:px-4"
+              >
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                  {index + 1}
                 </span>
+                <span className="min-w-0 flex-1 break-words">{item}</span>
               </li>
             ))}
           </ul>
