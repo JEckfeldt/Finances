@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 
 import {
   Card,
@@ -13,8 +15,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAIInsights } from "@/lib/api";
-import { parseInsightLines, type AIInsightStatus } from "@/lib/parse-insights";
+import type { AIInsightStatus } from "@/lib/parse-insights";
 import type { AIInsightsResponse } from "@/lib/types";
+
+const insightMarkdownComponents: Components = {
+  p: ({ children }) => (
+    <p className="text-sm leading-relaxed text-foreground">{children}</p>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-foreground">{children}</strong>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => <li className="break-words">{children}</li>,
+};
 
 function statusMessage(status: AIInsightStatus): string | null {
   switch (status) {
@@ -79,11 +101,6 @@ export function AIInsightsCard() {
     loadInsights();
   }, [loadInsights]);
 
-  const insightItems =
-    status === "success" && data?.insights
-      ? parseInsightLines(data.insights)
-      : [];
-
   const statusLabel = statusMessage(status);
 
   return (
@@ -145,20 +162,12 @@ export function AIInsightsCard() {
           <p className="text-sm leading-relaxed text-muted-foreground">
             {data?.message ?? "AI insights are currently unavailable."}
           </p>
-        ) : insightItems.length > 0 ? (
-          <ul className="space-y-3 text-sm leading-relaxed text-foreground">
-            {insightItems.map((item, index) => (
-              <li
-                key={`${index}-${item}`}
-                className="flex gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 sm:px-4"
-              >
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 break-words">{item}</span>
-              </li>
-            ))}
-          </ul>
+        ) : data?.insights ? (
+          <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3 sm:px-4 sm:py-4">
+            <ReactMarkdown components={insightMarkdownComponents}>
+              {data.insights}
+            </ReactMarkdown>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             No insights are available right now.

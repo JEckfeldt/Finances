@@ -171,8 +171,18 @@ Rules:
 - Use only the data provided below.
 - Do not invent transactions, balances, or categories.
 - Keep the response practical and easy to understand.
-- Provide 3 to 5 short bullet points.
+- Format the response using Markdown.
+- Use **bold text** for short section headings.
+- Use bullet lists (- item) for recommendations under each section.
+- Keep the response concise and actionable with 2 to 4 short sections.
 - Do not include sensitive identifiers.
+
+Example format:
+**Spending Trends**
+- Your grocery spending increased this month.
+
+**Budget Suggestions**
+- Consider reducing dining expenses to stay within your target.
 
 Financial summary for {context.month_label}:
 - Income: ${context.current_month_income:.2f}

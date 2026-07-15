@@ -65,6 +65,8 @@ def test_authenticated_user_can_request_insights(
     assert "2000.00" in prompt
     assert "150.00" in prompt
     assert "personal finance assistant" in prompt.lower()
+    assert "markdown" in prompt.lower()
+    assert "**bold text**" in prompt.lower()
 
 
 @patch("app.services.ai_insights_service.generate_text")
