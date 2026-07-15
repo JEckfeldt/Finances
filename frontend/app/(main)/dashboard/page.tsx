@@ -9,6 +9,7 @@ import {
   IncomeSummaryCard,
   RecentTransactionsCard,
 } from "@/components/dashboard/dashboard-widgets";
+import { AIInsightsCard } from "@/components/dashboard/ai-insights-card";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { IncomeExpenseChart } from "@/components/dashboard/income-expense-chart";
 import { SpendingTrendsChart } from "@/components/dashboard/spending-trends-chart";
@@ -101,6 +102,8 @@ export default function DashboardPage() {
           periodLabel={`Expenses for ${getCurrentMonthLabel()}`}
         />
       </div>
+
+      <AIInsightsCard />
 
       <div className={widgetGrid}>
         <BudgetProgressCard budgets={dashboard.budget_overview} />

@@ -1,4 +1,5 @@
 import type {
+  AIInsightsResponse,
   Budget,
   BudgetCreate,
   BudgetProgress,
@@ -209,4 +210,11 @@ export async function getBudgetProgress(): Promise<BudgetProgress[]> {
 export async function getDashboard(): Promise<DashboardData> {
   const response = await authFetch("/dashboard");
   return handleResponse<DashboardData>(response);
+}
+
+export async function getAIInsights(): Promise<AIInsightsResponse> {
+  const response = await authFetch("/ai/insights", {
+    method: "POST",
+  });
+  return handleResponse<AIInsightsResponse>(response);
 }

@@ -132,3 +132,9 @@ export interface DashboardData {
   monthly_spending_trend: MonthlySpendingTrend[];
   monthly_comparison_trend: MonthlyComparisonTrend[];
 }
+
+export interface AIInsightsResponse {
+  enabled: boolean;
+  insights: string | null;
+  message: string | null;
+}
