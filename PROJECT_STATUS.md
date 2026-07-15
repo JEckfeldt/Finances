@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 14, 2026 (Authentication hardening — M17)
+Last updated: July 15, 2026 (AI Financial Insights — M18)
 
-**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 17 milestones complete. Authentication uses httpOnly Secure cookies (no client-side JWT storage). Frontend supports responsive layouts for phones, tablets, and desktops.
+**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 18 milestones complete. Authentication uses httpOnly Secure cookies (no client-side JWT storage). Gemini-powered AI financial insights are available on the dashboard when enabled. Frontend supports responsive layouts for phones, tablets, and desktops.
 
 ---
 
@@ -43,6 +43,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M15 — HTTPS deployment | Complete | Custom domains, ACM certificates, ALB TLS, HTTPS CI/CD verification |
 | M16 — Mobile responsiveness | Complete | Responsive layouts, mobile navigation, touch-friendly forms, page-level QA across all routes |
 | M17 — Authentication hardening | Complete | httpOnly Secure cookies, cookie-only backend auth, `/auth/me` session validation, backend logout |
+| M18 — AI Financial Insights | Complete | Gemini integration, authenticated `/ai/insights`, dashboard AI card, Markdown-formatted responses |
 
 ---
 
@@ -52,7 +53,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 
 - Repository layout (`frontend/`, `backend/`, root config)
 - Docker Compose: PostgreSQL 16, FastAPI backend, Next.js frontend (all with health checks)
-- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `ACCESS_TOKEN_COOKIE_NAME`, `COOKIE_DOMAIN`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`, `TEST_DATABASE_URL`)
+- Environment config (`.env.example`, `.env.production.example`, `APP_ENV`, `CORS_ORIGINS`, `DATABASE_URL`, `SECRET_KEY`, `NEXT_PUBLIC_API_URL`, `ACCESS_TOKEN_COOKIE_NAME`, `COOKIE_DOMAIN`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY`, `TEST_DATABASE_URL`, `AI_ENABLED`, `AI_PROVIDER`, `AI_MODEL`, `GEMINI_API_KEY`)
 - HTTPS-ready configuration: production URLs require `https://`; local development uses HTTP
 - CORS credentialed requests enabled (`allow_credentials=True`) for cookie-based authentication
 - Cookie helpers for JWT issuance and logout (`backend/app/core/cookies.py`)
@@ -80,6 +81,10 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Custom 404 page (`app/not-found.tsx`) matching app design system
 - Shared `DialogShell` for scrollable edit dialogs on small screens
 - `useMediaQuery` hook for responsive chart sizing
+- `AIInsightsCard` dashboard component with Gemini-powered financial insights
+- Markdown rendering for AI responses (`react-markdown`)
+- AI loading, success, disabled, and error states with refresh/retry
+- AI requests use existing `authFetch()` with `credentials: "include"`
 
 #### Pages
 
@@ -87,7 +92,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 |-------|--------|---------|
 | `/login` | Functional | Email/password form; backend sets httpOnly cookie; redirects to dashboard; responsive layout |
 | `/register` | Functional | Email/password registration (min 8 chars), redirects to login; responsive layout |
-| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; responsive grids and charts |
+| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; AI insights card; responsive grids and charts |
 | `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination; card layout below `lg`, table at `lg+` |
 | `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states; responsive card grid |
 | `/health` | Functional | Public health check; returns `{"status":"ok"}` for ALB |
@@ -103,6 +108,11 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Category normalization (trim + title case); case-insensitive budget matching
 - Lightweight startup migrations for legacy databases
 - pytest suite with isolated `finance_app_test` database
+- Gemini AI service layer (`backend/app/services/ai_service.py`)
+- AI insights service with user-scoped financial context (`backend/app/services/ai_insights_service.py`)
+- AI schemas (`backend/app/schemas/ai.py`)
+- `POST /ai/insights` authenticated API endpoint
+- AI tests with mocked Gemini responses (`backend/tests/test_ai.py`)
 
 #### Models
 
@@ -130,6 +140,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | PUT/DELETE | `/budgets/{id}` | Update / delete |
 | GET | `/budgets/progress` | Progress with case-insensitive matching |
 | GET | `/dashboard` | Aggregated overview; optional `start_date` / `end_date` |
+| POST | `/ai/insights` | Gemini-powered financial insights for authenticated user |
 
 Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `search`, `type`, `category`
 
@@ -233,6 +244,7 @@ Production URLs:
 | `test_transactions.py` | CRUD, category normalization, user isolation |
 | `test_budgets.py` | CRUD, case-insensitive progress |
 | `test_dashboard.py` | Balance aggregation, monthly filtering, widget limits |
+| `test_ai.py` | AI disabled fallback, insights generation, mocked Gemini, error mapping |
 
 Run from `backend/` with the virtual environment activated:
 
@@ -323,6 +335,59 @@ Production authentication uses httpOnly Secure cookies instead of client-side JW
 | Cross-subdomain | Production `COOKIE_DOMAIN=.jakesfinancetracker.com` for `app.*` → `api.*` |
 | Cookie flags | `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_HTTPONLY` env-driven |
 
+### AI Financial Insights (M18)
+
+Integrated a Gemini-powered AI financial assistant that generates personalized financial insights from user-scoped transaction and budget data.
+
+**Status:** Complete
+
+**Summary:** The backend aggregates each user's financial data into a sanitized context, sends it to Gemini, and returns Markdown-formatted insights. The dashboard displays the response with proper formatting. The Gemini API key never leaves the backend.
+
+**Implemented:**
+- Backend Gemini API integration (`google-genai`)
+- Configurable AI provider/model settings (`AI_PROVIDER`, `AI_MODEL`)
+- Authenticated `POST /ai/insights` endpoint
+- User-specific financial context generation (income, expenses, categories, budgets, trends)
+- Dashboard `AIInsightsCard` component
+- Markdown-formatted AI responses (`react-markdown` on frontend)
+- Backend-only API key handling
+- AI disabled fallback behavior when `AI_ENABLED=false`
+- Error handling for AI failures (rate limits, provider errors, empty responses)
+
+**Frontend:**
+- Dashboard contains `AIInsightsCard` (`frontend/components/dashboard/ai-insights-card.tsx`)
+- Uses existing cookie authentication — no separate AI auth flow
+- Calls backend `POST /ai/insights` via `getAIInsights()` in `lib/api.ts`
+- Displays loading, success, disabled, and error states
+- Refresh button with duplicate-request guard
+- Renders bold headings, bullet lists, and paragraphs from Markdown
+
+**Backend:**
+- `POST /ai/insights` requires authentication (`get_current_user`)
+- Uses only the authenticated user's transaction and budget data
+- Builds sanitized financial context in `ai_insights_service.py`
+- Sends aggregated financial information to Gemini — not raw database rows
+- Does **not** send:
+  - user email
+  - user ID
+  - transaction descriptions
+  - private identifying information
+
+**AI configuration (environment variables):**
+
+| Variable | Purpose |
+|----------|---------|
+| `AI_ENABLED` | Master switch — when `false`, endpoint returns disabled message without calling Gemini |
+| `AI_PROVIDER` | Provider identifier (currently `gemini`) |
+| `AI_MODEL` | Gemini model name (e.g. `gemini-2.0-flash`) |
+| `GEMINI_API_KEY` | Google Gemini API key — **backend only** |
+
+**Security notes:**
+- `GEMINI_API_KEY` is backend-only and never exposed to the frontend
+- The frontend has no AI API keys or direct Gemini access
+- Production configuration is stored through ECS task definition environment variables (or secrets)
+- Tests force `AI_ENABLED=false` in `conftest.py` to avoid real API calls
+
 ---
 
 ## What Is NOT Implemented
@@ -335,6 +400,13 @@ Production authentication uses httpOnly Secure cookies instead of client-side JW
 - Dedicated category database table
 - Advanced dashboard analytics (goals, forecasts, etc.)
 - Dashboard date range selector UI (removed; backend params remain)
+
+**Future AI features (not yet built):**
+- Natural language transaction creation
+- Natural language budget creation
+- AI chat assistant with conversation history
+- Stored AI conversations
+- AI memory / personalization beyond per-request context
 
 ---
 
@@ -350,19 +422,19 @@ Production authentication uses httpOnly Secure cookies instead of client-side JW
 ├── frontend/
 │   ├── Dockerfile
 │   ├── app/                    layout, login, register, (main) pages, /health, not-found
-│   ├── components/             auth, budgets, dashboard, layout, transactions, ui
+│   ├── components/             auth, budgets, dashboard (incl. AIInsightsCard), layout, transactions, ui
 │   ├── hooks/                  use-media-query
-│   └── lib/                    api, auth, format, types
+│   └── lib/                    api, auth, format, parse-insights, types
 ├── backend/
 │   ├── Dockerfile
 │   ├── pytest.ini
 │   ├── requirements-dev.txt
-│   ├── tests/                  conftest + auth/transactions/budgets/dashboard tests
+│   ├── tests/                  conftest + auth/transactions/budgets/dashboard/ai tests
 │   └── app/
 │       ├── main.py
 │       ├── core/               config, auth, categories, cookies
-│       ├── api/routes/         auth, budgets, dashboard, transactions
-│       ├── services/           budget, dashboard
+│       ├── api/routes/         auth, ai, budgets, dashboard, transactions
+│       ├── services/           ai, ai_insights, budget, dashboard
 │       ├── db/                 session, migrate
 │       ├── models/
 │       └── schemas/
@@ -402,7 +474,7 @@ npm run dev
 2. Create/edit/delete transactions with a custom date and free-text category
 3. Use search, type/category filters, and pagination on `/transactions`
 4. Create budgets on `/budgets`; verify progress updates
-5. Open `/dashboard` — summary cards, top 5 budgets, 5 recent transactions, charts
+5. Open `/dashboard` — summary cards, top 5 budgets, 5 recent transactions, charts, AI insights (if enabled)
 6. Confirm sidebar spans full viewport height at `lg+`; hamburger navigation works below `lg`
 7. Sign in as a second user — confirm data isolation
 8. Resize browser to 320px, 768px, and 1440px — confirm no horizontal scrolling on dashboard, transactions, budgets, login, and 404
