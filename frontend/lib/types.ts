@@ -138,3 +138,23 @@ export interface AIInsightsResponse {
   insights: string | null;
   message: string | null;
 }
+
+export type AIActionStatus =
+  | "success"
+  | "disabled"
+  | "parse_error"
+  | "validation_error";
+
+export interface UnknownAction {
+  intent: "unknown";
+  reason: string | null;
+}
+
+export interface AIActionResponse {
+  enabled: boolean;
+  status: AIActionStatus;
+  message: string | null;
+  action: UnknownAction | null;
+  transaction: Transaction | null;
+  budget: Budget | null;
+}

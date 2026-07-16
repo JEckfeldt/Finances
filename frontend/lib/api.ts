@@ -1,4 +1,5 @@
 import type {
+  AIActionResponse,
   AIInsightsResponse,
   Budget,
   BudgetCreate,
@@ -217,4 +218,12 @@ export async function getAIInsights(): Promise<AIInsightsResponse> {
     method: "POST",
   });
   return handleResponse<AIInsightsResponse>(response);
+}
+
+export async function executeAIAction(message: string): Promise<AIActionResponse> {
+  const response = await authFetch("/ai/action", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+  return handleResponse<AIActionResponse>(response);
 }
