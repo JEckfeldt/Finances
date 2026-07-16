@@ -19,25 +19,67 @@ A full-stack personal finance application that helps users track spending, manag
 
 ---
 
-## Screenshots
+# Screenshots
 
-### Dashboard
-<!-- Insert screenshot -->
+## Dashboard
 
-### Budgets
-<!-- Insert screenshot -->
+<p align="center">
+  <img src="assets/screenshots/dashboard_ai_insights.png"
+       alt="Dashboard Metrics"
+       width="90%">
+</p>
 
-### Transactions
-<!-- Insert screenshot -->
+<p align="center">
+  <img src="assets/screenshots/dashboard_metrics.png"
+       alt="AI Spending Insights"
+       width="48%">
+  <img src="assets/screenshots/dashboard_ai_actions.png"
+       alt="AI Natural Language Actions"
+       width="48%">
+</p>
 
-### Spending Insights (LLM)
-<!-- Insert screenshot -->
+The dashboard provides an overview of spending trends, budget progress, AI-generated financial insights, and natural language actions for managing finances.
 
-### Mobile Responsive
-<!-- Insert screenshot -->
+---
 
-### Authentication
-<!-- Insert screenshot -->
+## Budget Management
+
+<p align="center">
+  <img src="assets/screenshots/budgets.png" alt="Budget Management" width="85%">
+</p>
+
+Create and manage monthly budgets with real-time progress tracking based on current-month spending.
+
+---
+
+## Transaction Management
+
+<p align="center">
+  <img src="assets/screenshots/transactions.png" alt="Transaction Management" width="85%">
+</p>
+
+View, search, filter, and manage transactions with categorized expense tracking.
+
+---
+
+## Authentication
+
+<p align="center">
+  <img src="assets/screenshots/login.png" alt="Login" width="48%">
+  <img src="assets/screenshots/register.png" alt="Register" width="48%">
+</p>
+
+Secure authentication using httpOnly cookies with protected routes and persistent sessions.
+
+---
+
+## Mobile Responsive Design
+
+<p align="center">
+  <img src="assets/screenshots/mobile.png" alt="Mobile Responsive Dashboard" width="48%">
+</p>
+
+The application is fully responsive and optimized for desktop, tablet, and mobile devices.
 
 ---
 
