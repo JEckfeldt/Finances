@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, cast, func, select
@@ -19,14 +19,6 @@ from app.services.budget import get_budget_progress_for_user
 RECENT_TRANSACTION_LIMIT = 5
 BUDGET_OVERVIEW_LIMIT = 5
 DEFAULT_TREND_MONTH_COUNT = 6
-
-
-def _datetime_start(d: date) -> datetime:
-    return datetime(d.year, d.month, d.day, tzinfo=UTC)
-
-
-def _datetime_end_exclusive(d: date) -> datetime:
-    return _datetime_start(d + timedelta(days=1))
 
 
 def _apply_transaction_date_filters(
@@ -131,8 +123,6 @@ def get_dashboard_for_user(
     end_date: date | None = None,
 ) -> DashboardResponse:
     has_date_filter = start_date is not None or end_date is not None
-    budget_start_dt = _datetime_start(start_date) if start_date else None
-    budget_end_dt = _datetime_end_exclusive(end_date) if end_date else None
 
     if has_date_filter:
         period_income = _sum_by_type(
@@ -172,9 +162,7 @@ def get_dashboard_for_user(
     recent_transactions = list(db.scalars(recent_stmt).all())
 
     budget_overview = sorted(
-        get_budget_progress_for_user(
-            db, user_id, start_dt=budget_start_dt, end_dt=budget_end_dt
-        ),
+        get_budget_progress_for_user(db, user_id),
         key=lambda budget: budget.percentage,
         reverse=True,
     )[:BUDGET_OVERVIEW_LIMIT]

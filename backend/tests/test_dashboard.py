@@ -92,6 +92,35 @@ def test_dashboard_recent_transactions_limited_to_five(client, user_a):
     assert len(response.json()["recent_transactions"]) == 5
 
 
+def test_dashboard_budget_overview_ignores_previous_month_spending(client, user_a):
+    client.post(
+        "/budgets",
+        json={"category": "Food", "limit_amount": "500.00"},
+    )
+    create_transaction(
+        client,
+        amount="400.00",
+        category="Food",
+        description="Old spending",
+        transaction_date=_previous_month_date(),
+    )
+    create_transaction(
+        client,
+        amount="50.00",
+        category="Food",
+        description="Current spending",
+        transaction_date=_current_month_date(),
+    )
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    overview = response.json()["budget_overview"]
+    assert len(overview) == 1
+    assert Decimal(overview[0]["spent"]) == Decimal("50.00")
+    assert overview[0]["percentage"] == 10.0
+
+
 def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a):
     budgets = [
         ("Low", "1000.00", "10.00"),

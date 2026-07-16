@@ -110,6 +110,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - `POST /auth/logout` clears authentication cookie
 - All data routes protected and scoped to authenticated user
 - Category normalization (trim + title case); case-insensitive budget matching
+- Budget progress sums current-month expense transactions only (`transaction_date` in calendar month)
 - Lightweight startup migrations for legacy databases
 - pytest suite with isolated `finance_app_test` database
 - Gemini AI service layer (`backend/app/services/ai_service.py`)
@@ -145,7 +146,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | DELETE | `/transactions/{id}` | Delete own transaction |
 | GET/POST | `/budgets` | List / create |
 | PUT/DELETE | `/budgets/{id}` | Update / delete |
-| GET | `/budgets/progress` | Progress with case-insensitive matching |
+| GET | `/budgets/progress` | Current-month expense progress with case-insensitive matching |
 | GET | `/dashboard` | Aggregated overview; optional `start_date` / `end_date` |
 | POST | `/ai/insights` | Gemini-powered financial insights for authenticated user |
 | POST | `/ai/action` | Natural language transaction/budget creation for authenticated user |
@@ -250,7 +251,7 @@ Production URLs:
 |--------|----------|
 | `test_auth.py` | Registration, login, cookie auth, logout, password hashing, protected routes |
 | `test_transactions.py` | CRUD, category normalization, user isolation |
-| `test_budgets.py` | CRUD, case-insensitive progress |
+| `test_budgets.py` | CRUD, case-insensitive progress, current-month expense filtering |
 | `test_dashboard.py` | Balance aggregation, monthly filtering, widget limits |
 | `test_ai.py` | AI disabled fallback, insights generation, action parsing/validation/execution, mocked Gemini, error mapping |
 
@@ -475,7 +476,7 @@ Users can create transactions and budgets from plain English on the dashboard. T
 │   ├── Dockerfile
 │   ├── pytest.ini
 │   ├── requirements-dev.txt
-│   ├── tests/                  conftest + auth/transactions/budgets/dashboard/ai tests (66 tests)
+│   ├── tests/                  conftest + auth/transactions/budgets/dashboard/ai tests (68 tests)
 │   └── app/
 │       ├── main.py
 │       ├── core/               config, auth, categories, cookies

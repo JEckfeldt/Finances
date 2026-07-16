@@ -16,7 +16,7 @@ A full-stack personal finance application for tracking transactions, managing bu
 
 - User registration and JWT authentication with httpOnly Secure cookies and per-user data isolation
 - Transaction management — create, edit, delete, search, filter, and paginate
-- Budget tracking with progress bars and case-insensitive category matching
+- Budget tracking with monthly progress bars and case-insensitive category matching
 - Financial dashboard — balance, monthly income/expenses, spending charts, recent transactions
 - AI financial insights — Gemini-powered personalized guidance on the dashboard (Markdown-formatted)
 - Natural language financial actions — create transactions and budgets from plain English (e.g. "I spent $42 at Costco")
@@ -164,7 +164,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-66 integration tests cover auth, transactions, budgets, dashboard, and AI endpoints. Tests use an isolated `finance_app_test` database.
+68 integration tests cover auth, transactions, budgets, dashboard, and AI endpoints. Tests use an isolated `finance_app_test` database.
 
 ### Reproduce CI checks locally
 
