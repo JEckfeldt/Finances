@@ -15,7 +15,7 @@ from app.schemas.budget import (
     BudgetUpdate,
 )
 
-from app.services.budget import get_budget_progress_for_user
+from app.services.budget import create_budget_for_user, get_budget_progress_for_user
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
@@ -55,15 +55,7 @@ def create_budget(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Budget:
-    budget = Budget(
-        user_id=current_user.id,
-        category=budget_in.category,
-        limit_amount=budget_in.limit_amount,
-    )
-    db.add(budget)
-    db.commit()
-    db.refresh(budget)
-    return budget
+    return create_budget_for_user(db, current_user.id, budget_in)
 
 
 @router.put("/{budget_id}", response_model=BudgetResponse)

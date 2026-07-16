@@ -16,6 +16,7 @@ pnpm-debug.log*
 # Documentation
 ARCHITECTURE_GUIDE.md
 AUTH_HARDENING_PLAN.md
+PROJECT_INTERVIEW_PREP.md
 
 # Environment
 .env

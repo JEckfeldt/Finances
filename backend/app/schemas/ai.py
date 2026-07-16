@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field, Tag
 
+from app.schemas.budget import BudgetResponse
 from app.schemas.transaction import TransactionResponse
 
 
@@ -84,3 +85,4 @@ class AIActionResponse(BaseModel):
     message: str | None = None
     action: CreateTransactionAction | CreateBudgetAction | UnknownAction | None = None
     transaction: TransactionResponse | None = None
+    budget: BudgetResponse | None = None

@@ -5,7 +5,11 @@ import pytest
 from google.genai.errors import ClientError, ServerError
 
 from app.schemas.ai import AIGenerateTextResponse
-from app.services.ai_action_service import parse_action_json, transaction_create_from_action
+from app.services.ai_action_service import (
+    budget_create_from_action,
+    parse_action_json,
+    transaction_create_from_action,
+)
 from app.services.ai_service import AIServiceError, generate_text, public_ai_error_message
 from tests.conftest import create_transaction, login_user
 
@@ -290,7 +294,7 @@ def test_action_create_transaction_normalizes_category(
 
 
 @patch("app.services.ai_action_service.generate_text")
-def test_action_parses_create_budget(mock_generate_text, client, user_a):
+def test_action_creates_budget_successfully(mock_generate_text, client, user_a):
     mock_generate_text.return_value = AIGenerateTextResponse(
         enabled=True,
         text='{"intent": "create_budget", "category": "Gas", "limit_amount": 500}',
@@ -298,15 +302,93 @@ def test_action_parses_create_budget(mock_generate_text, client, user_a):
 
     response = client.post(
         "/ai/action",
-        json={"message": "Set a $500 gas budget"},
+        json={"message": "Create a $500 gas budget"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["enabled"] is True
+    assert data["status"] == "success"
+    assert data["message"] == "Budget created."
+    assert data["action"] is None
+    assert data["budget"]["category"] == "Gas"
+    assert data["budget"]["limit_amount"] == "500.00"
+    assert data["budget"]["user_id"] == user_a["id"]
+
+    list_response = client.get("/budgets")
+    assert list_response.status_code == 200
+    budgets = list_response.json()
+    assert len(budgets) == 1
+    assert budgets[0]["id"] == data["budget"]["id"]
+    assert budgets[0]["limit_amount"] == "500.00"
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_creates_budget_normalizes_category(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "create_budget", "category": "  grocery  ", "limit_amount": 350}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Make me a grocery budget for $350"},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
-    assert data["action"]["intent"] == "create_budget"
-    assert data["action"]["category"] == "Gas"
-    assert data["action"]["limit_amount"] == "500"
+    assert data["message"] == "Budget created."
+    assert data["budget"]["category"] == "Grocery"
+    assert data["budget"]["limit_amount"] == "350.00"
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_handles_invalid_budget_amount(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "create_budget", "category": "Entertainment", "limit_amount": -120}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Budget $120 for entertainment"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "parse_error"
+    assert data["budget"] is None
+    assert client.get("/budgets").json() == []
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_handles_malformed_budget_response(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text='{"intent": "create_budget", "limit_amount": 500}',
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "Create a $500 gas budget"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "parse_error"
+    assert data["budget"] is None
+    assert client.get("/budgets").json() == []
+
+
+def test_action_budget_requires_authentication(client):
+    response = client.post(
+        "/ai/action",
+        json={"message": "Create a $500 gas budget"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -469,8 +551,9 @@ def test_action_strips_json_code_fence(mock_generate_text, client, user_a):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
-    assert data["action"]["intent"] == "create_budget"
-    assert data["action"]["category"] == "Food"
+    assert data["message"] == "Budget created."
+    assert data["budget"]["category"] == "Food"
+    assert data["budget"]["limit_amount"] == "300.00"
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -535,6 +618,20 @@ def test_transaction_create_from_action_uses_existing_validation():
     assert transaction_in.category == "Food"
     assert transaction_in.amount == pytest.approx(action.amount)
     assert transaction_in.transaction_date == datetime.now(UTC).date()
+
+
+def test_budget_create_from_action_uses_existing_validation():
+    from app.schemas.ai import CreateBudgetAction
+
+    action = CreateBudgetAction(
+        intent="create_budget",
+        category="gas",
+        limit_amount="500",
+    )
+    budget_in = budget_create_from_action(action)
+
+    assert budget_in.category == "Gas"
+    assert budget_in.limit_amount == action.limit_amount
 
 
 def test_parse_action_json_unsupported_intent():

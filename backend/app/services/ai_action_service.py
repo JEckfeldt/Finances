@@ -5,7 +5,7 @@ Architecture and security:
 - Receives only the authenticated user's ID from routes (same pattern as insights).
 - Calls Gemini to interpret user messages into structured JSON intents.
 - Executes supported actions by delegating to existing domain services.
-- Never writes directly to the database — transaction creation uses transaction service.
+- Never writes directly to the database — creation uses transaction/budget services.
 - Gemini has no database access; only the user's message is sent in the prompt.
 """
 
@@ -25,8 +25,10 @@ from app.schemas.ai import (
     CreateTransactionAction,
     UnknownAction,
 )
+from app.schemas.budget import BudgetCreate, BudgetResponse
 from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.ai_service import AIServiceError, generate_text
+from app.services.budget import create_budget_for_user
 from app.services.transaction import create_transaction_for_user
 
 logger = logging.getLogger(__name__)
@@ -36,10 +38,14 @@ _ACTION_ADAPTER = TypeAdapter(AIActionParsed)
 PARSE_ERROR_MESSAGE = (
     "Could not parse the AI response as a valid financial action. Please try again."
 )
-VALIDATION_ERROR_MESSAGE = (
+TRANSACTION_VALIDATION_ERROR_MESSAGE = (
     "The parsed transaction data is invalid. Please try again."
 )
+BUDGET_VALIDATION_ERROR_MESSAGE = (
+    "The parsed budget data is invalid. Please try again."
+)
 TRANSACTION_CREATED_MESSAGE = "Transaction created."
+BUDGET_CREATED_MESSAGE = "Budget created."
 
 
 def build_action_prompt(message: str) -> str:
@@ -148,6 +154,14 @@ def transaction_create_from_action(
     )
 
 
+def budget_create_from_action(action: CreateBudgetAction) -> BudgetCreate:
+    """Map parsed AI budget fields into the standard create schema."""
+    return BudgetCreate(
+        category=action.category,
+        limit_amount=action.limit_amount,
+    )
+
+
 def execute_parsed_action(
     db: Session,
     user_id: int,
@@ -162,9 +176,10 @@ def execute_parsed_action(
             return AIActionResponse(
                 enabled=True,
                 status="validation_error",
-                message=VALIDATION_ERROR_MESSAGE,
+                message=TRANSACTION_VALIDATION_ERROR_MESSAGE,
                 action=None,
                 transaction=None,
+                budget=None,
             )
 
         transaction = create_transaction_for_user(db, user_id, transaction_in)
@@ -174,6 +189,31 @@ def execute_parsed_action(
             message=TRANSACTION_CREATED_MESSAGE,
             action=None,
             transaction=TransactionResponse.model_validate(transaction),
+            budget=None,
+        )
+
+    if isinstance(action, CreateBudgetAction):
+        try:
+            budget_in = budget_create_from_action(action)
+        except ValidationError as exc:
+            logger.warning("AI budget action failed validation: %s", exc)
+            return AIActionResponse(
+                enabled=True,
+                status="validation_error",
+                message=BUDGET_VALIDATION_ERROR_MESSAGE,
+                action=None,
+                transaction=None,
+                budget=None,
+            )
+
+        budget = create_budget_for_user(db, user_id, budget_in)
+        return AIActionResponse(
+            enabled=True,
+            status="success",
+            message=BUDGET_CREATED_MESSAGE,
+            action=None,
+            transaction=None,
+            budget=BudgetResponse.model_validate(budget),
         )
 
     return AIActionResponse(
@@ -181,6 +221,7 @@ def execute_parsed_action(
         status="success",
         action=action,
         transaction=None,
+        budget=None,
     )
 
 
@@ -198,6 +239,7 @@ def process_natural_language_action(
             message=ai_response.message,
             action=None,
             transaction=None,
+            budget=None,
         )
 
     if not ai_response.text:
@@ -213,6 +255,7 @@ def process_natural_language_action(
             message=PARSE_ERROR_MESSAGE,
             action=None,
             transaction=None,
+            budget=None,
         )
 
     return execute_parsed_action(db, user_id, action)

@@ -1,13 +1,3 @@
-from decimal import Decimal
-
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
-from app.models.budget import Budget
-from app.models.transaction import Transaction, TransactionType
-from app.schemas.budget import BudgetProgressResponse
-
-
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,7 +6,24 @@ from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
 from app.models.transaction import Transaction, TransactionType
-from app.schemas.budget import BudgetProgressResponse
+from app.schemas.budget import BudgetCreate, BudgetProgressResponse
+
+
+def create_budget_for_user(
+    db: Session,
+    user_id: int,
+    budget_in: BudgetCreate,
+) -> Budget:
+    """Create a budget for the given user."""
+    budget = Budget(
+        user_id=user_id,
+        category=budget_in.category,
+        limit_amount=budget_in.limit_amount,
+    )
+    db.add(budget)
+    db.commit()
+    db.refresh(budget)
+    return budget
 
 
 def get_budget_progress_for_user(
