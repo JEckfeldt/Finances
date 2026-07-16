@@ -4,17 +4,20 @@ Natural language financial actions service.
 Architecture and security:
 - Receives only the authenticated user's ID from routes (same pattern as insights).
 - Calls Gemini to interpret user messages into structured JSON intents.
-- Does not access the database or create transactions/budgets (parsing only).
+- Executes supported actions by delegating to existing domain services.
+- Never writes directly to the database — transaction creation uses transaction service.
 - Gemini has no database access; only the user's message is sent in the prompt.
 """
 
 import json
 import logging
+from datetime import UTC, date, datetime
 from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
+from app.models.transaction import TransactionType
 from app.schemas.ai import (
     AIActionParsed,
     AIActionResponse,
@@ -22,7 +25,9 @@ from app.schemas.ai import (
     CreateTransactionAction,
     UnknownAction,
 )
+from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.ai_service import AIServiceError, generate_text
+from app.services.transaction import create_transaction_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,10 @@ _ACTION_ADAPTER = TypeAdapter(AIActionParsed)
 PARSE_ERROR_MESSAGE = (
     "Could not parse the AI response as a valid financial action. Please try again."
 )
+VALIDATION_ERROR_MESSAGE = (
+    "The parsed transaction data is invalid. Please try again."
+)
+TRANSACTION_CREATED_MESSAGE = "Transaction created."
 
 
 def build_action_prompt(message: str) -> str:
@@ -118,14 +127,69 @@ def parse_action_json(text: str) -> AIActionParsed:
         raise ValueError("AI response failed action validation") from exc
 
 
+def resolve_action_date(date_str: str) -> date:
+    """Convert AI date values into a concrete transaction date."""
+    normalized = date_str.strip().lower()
+    if normalized == "today":
+        return datetime.now(UTC).date()
+    return date.fromisoformat(date_str.strip())
+
+
+def transaction_create_from_action(
+    action: CreateTransactionAction,
+) -> TransactionCreate:
+    """Map parsed AI transaction fields into the standard create schema."""
+    return TransactionCreate(
+        description=action.description,
+        amount=action.amount,
+        type=TransactionType(action.type),
+        category=action.category,
+        transaction_date=resolve_action_date(action.date),
+    )
+
+
+def execute_parsed_action(
+    db: Session,
+    user_id: int,
+    action: AIActionParsed,
+) -> AIActionResponse:
+    """Execute a parsed action using existing domain services."""
+    if isinstance(action, CreateTransactionAction):
+        try:
+            transaction_in = transaction_create_from_action(action)
+        except (ValidationError, ValueError) as exc:
+            logger.warning("AI transaction action failed validation: %s", exc)
+            return AIActionResponse(
+                enabled=True,
+                status="validation_error",
+                message=VALIDATION_ERROR_MESSAGE,
+                action=None,
+                transaction=None,
+            )
+
+        transaction = create_transaction_for_user(db, user_id, transaction_in)
+        return AIActionResponse(
+            enabled=True,
+            status="success",
+            message=TRANSACTION_CREATED_MESSAGE,
+            action=None,
+            transaction=TransactionResponse.model_validate(transaction),
+        )
+
+    return AIActionResponse(
+        enabled=True,
+        status="success",
+        action=action,
+        transaction=None,
+    )
+
+
 def process_natural_language_action(
     db: Session,
     user_id: int,
     message: str,
 ) -> AIActionResponse:
-    """Interpret a natural language message via Gemini and return structured action data."""
-    _ = db, user_id
-
+    """Interpret a natural language message and execute supported actions."""
     ai_response = generate_text(build_action_prompt(message))
     if not ai_response.enabled:
         return AIActionResponse(
@@ -133,6 +197,7 @@ def process_natural_language_action(
             status="disabled",
             message=ai_response.message,
             action=None,
+            transaction=None,
         )
 
     if not ai_response.text:
@@ -147,10 +212,7 @@ def process_natural_language_action(
             status="parse_error",
             message=PARSE_ERROR_MESSAGE,
             action=None,
+            transaction=None,
         )
 
-    return AIActionResponse(
-        enabled=True,
-        status="success",
-        action=action,
-    )
+    return execute_parsed_action(db, user_id, action)

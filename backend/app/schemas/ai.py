@@ -3,6 +3,8 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field, Tag
 
+from app.schemas.transaction import TransactionResponse
+
 
 class AIPromptRequest(BaseModel):
     """Request body for future AI text-generation endpoints."""
@@ -78,6 +80,7 @@ class AIActionResponse(BaseModel):
     """Response from natural language financial action processing."""
 
     enabled: bool
-    status: Literal["success", "disabled", "parse_error"]
+    status: Literal["success", "disabled", "parse_error", "validation_error"]
     message: str | None = None
     action: CreateTransactionAction | CreateBudgetAction | UnknownAction | None = None
+    transaction: TransactionResponse | None = None

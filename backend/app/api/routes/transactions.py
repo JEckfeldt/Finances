@@ -14,6 +14,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.schemas.transaction_list import TransactionListResponse
+from app.services.transaction import create_transaction_for_user
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -134,18 +135,7 @@ def create_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Transaction:
-    transaction = Transaction(
-        user_id=current_user.id,
-        description=transaction_in.description,
-        amount=transaction_in.amount,
-        type=transaction_in.type,
-        category=transaction_in.category,
-        transaction_date=transaction_in.transaction_date,
-    )
-    db.add(transaction)
-    db.commit()
-    db.refresh(transaction)
-    return transaction
+    return create_transaction_for_user(db, current_user.id, transaction_in)
 
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
