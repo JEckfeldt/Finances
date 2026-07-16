@@ -18,6 +18,8 @@ A full-stack personal finance application for tracking transactions, managing bu
 - Transaction management — create, edit, delete, search, filter, and paginate
 - Budget tracking with progress bars and case-insensitive category matching
 - Financial dashboard — balance, monthly income/expenses, spending charts, recent transactions
+- AI financial insights — Gemini-powered personalized guidance on the dashboard (Markdown-formatted)
+- Natural language financial actions — create transactions and budgets from plain English (e.g. "I spent $42 at Costco")
 - Custom 404 page and `/health` endpoints for production monitoring
 - Responsive layouts for phones, tablets, and desktops (hamburger navigation below `lg`, responsive forms and page grids)
 - Automated testing, Docker-based deployment, and GitHub Actions CI/CD
@@ -143,6 +145,10 @@ uvicorn app.main:app --reload
 | `COOKIE_DOMAIN` | Empty locally; `.your-domain.com` in production for cross-subdomain cookies |
 | `ACCESS_TOKEN_COOKIE_NAME` | Cookie name for JWT (default: `access_token`) |
 | `TEST_DATABASE_URL` | Optional isolated test database |
+| `AI_ENABLED` | Master switch for AI features (`true` / `false`) |
+| `AI_PROVIDER` | AI provider identifier (`gemini`) |
+| `AI_MODEL` | Gemini model name (e.g. `gemini-2.0-flash`) |
+| `GEMINI_API_KEY` | Google Gemini API key — **backend only**, never in frontend |
 
 See [`.env.example`](.env.example) for development and [`.env.production.example`](.env.production.example) for production.
 
@@ -158,7 +164,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-28 integration tests cover auth, transactions, budgets, and dashboard endpoints. Tests use an isolated `finance_app_test` database.
+66 integration tests cover auth, transactions, budgets, dashboard, and AI endpoints. Tests use an isolated `finance_app_test` database.
 
 ### Reproduce CI checks locally
 

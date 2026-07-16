@@ -30,10 +30,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (options?: { silent?: boolean }) => {
     try {
       setError(null);
-      setIsLoading(true);
+      if (!options?.silent) {
+        setIsLoading(true);
+      }
       const data = await getDashboard();
       setDashboard(data);
     } catch (err) {
@@ -41,9 +43,15 @@ export default function DashboardPage() {
         err instanceof Error ? err.message : "Failed to load dashboard"
       );
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
   }, []);
+
+  const handleAIActionSuccess = useCallback(async () => {
+    await loadDashboard({ silent: true });
+  }, [loadDashboard]);
 
   useEffect(() => {
     loadDashboard();
@@ -106,7 +114,7 @@ export default function DashboardPage() {
 
       <AIInsightsCard />
 
-      <AIActionsCard />
+      <AIActionsCard onActionSuccess={handleAIActionSuccess} />
 
       <div className={widgetGrid}>
         <BudgetProgressCard budgets={dashboard.budget_overview} />

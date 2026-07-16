@@ -2,9 +2,9 @@
 
 Living document tracking what has been built and what remains.
 
-Last updated: July 15, 2026 (AI Financial Insights — M18)
+Last updated: July 15, 2026 (Natural Language Financial Actions — M19)
 
-**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 18 milestones complete. Authentication uses httpOnly Secure cookies (no client-side JWT storage). Gemini-powered AI financial insights are available on the dashboard when enabled. Frontend supports responsive layouts for phones, tablets, and desktops.
+**Current state:** Production application live at **https://app.jakesfinancetracker.com** with API at **https://api.jakesfinancetracker.com**. Deployed on AWS ECS Fargate with RDS PostgreSQL, ALB HTTPS termination (ACM), and automated GitHub Actions CI/CD. All 19 milestones complete. Authentication uses httpOnly Secure cookies (no client-side JWT storage). Gemini-powered AI financial insights and natural language transaction/budget creation are available on the dashboard when enabled. Frontend supports responsive layouts for phones, tablets, and desktops.
 
 ---
 
@@ -44,6 +44,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | M16 — Mobile responsiveness | Complete | Responsive layouts, mobile navigation, touch-friendly forms, page-level QA across all routes |
 | M17 — Authentication hardening | Complete | httpOnly Secure cookies, cookie-only backend auth, `/auth/me` session validation, backend logout |
 | M18 — AI Financial Insights | Complete | Gemini integration, authenticated `/ai/insights`, dashboard AI card, Markdown-formatted responses |
+| M19 — Natural Language Financial Actions | Complete | Gemini intent parsing, transaction/budget creation via existing services, dashboard AI actions card, validation pipeline |
 
 ---
 
@@ -82,8 +83,11 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - Shared `DialogShell` for scrollable edit dialogs on small screens
 - `useMediaQuery` hook for responsive chart sizing
 - `AIInsightsCard` dashboard component with Gemini-powered financial insights
+- `AIActionsCard` dashboard component for natural language transaction and budget creation
 - Markdown rendering for AI responses (`react-markdown`)
 - AI loading, success, disabled, and error states with refresh/retry
+- AI action loading skeleton, success confirmation, duplicate-request guard, and clearer error mapping
+- Dashboard silent refresh after successful AI actions (recent transactions, budgets, summary cards)
 - AI requests use existing `authFetch()` with `credentials: "include"`
 
 #### Pages
@@ -92,7 +96,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 |-------|--------|---------|
 | `/login` | Functional | Email/password form; backend sets httpOnly cookie; redirects to dashboard; responsive layout |
 | `/register` | Functional | Email/password registration (min 8 chars), redirects to login; responsive layout |
-| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; AI insights card; responsive grids and charts |
+| `/dashboard` | Functional | All-time balance; current-month income/expenses; top 5 budgets by usage; 5 recent transactions; charts; AI insights and AI actions cards; responsive grids and charts |
 | `/transactions` | Functional | Create/edit/delete with user-selected date; free-text category; search, type/category filters, pagination; card layout below `lg`, table at `lg+` |
 | `/budgets` | Functional | Add/edit/delete budgets, progress bars, loading/error states; responsive card grid |
 | `/health` | Functional | Public health check; returns `{"status":"ok"}` for ALB |
@@ -110,8 +114,11 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 - pytest suite with isolated `finance_app_test` database
 - Gemini AI service layer (`backend/app/services/ai_service.py`)
 - AI insights service with user-scoped financial context (`backend/app/services/ai_insights_service.py`)
+- AI action service with intent parsing and validation (`backend/app/services/ai_action_service.py`)
+- Shared domain helpers: `create_transaction_for_user()`, `create_budget_for_user()`
 - AI schemas (`backend/app/schemas/ai.py`)
 - `POST /ai/insights` authenticated API endpoint
+- `POST /ai/action` authenticated natural language action endpoint
 - AI tests with mocked Gemini responses (`backend/tests/test_ai.py`)
 
 #### Models
@@ -141,6 +148,7 @@ Design direction: Clean, modern, calm, professional, minimal. Off-white backgrou
 | GET | `/budgets/progress` | Progress with case-insensitive matching |
 | GET | `/dashboard` | Aggregated overview; optional `start_date` / `end_date` |
 | POST | `/ai/insights` | Gemini-powered financial insights for authenticated user |
+| POST | `/ai/action` | Natural language transaction/budget creation for authenticated user |
 
 Transaction list query params: `page`, `page_size`, `sort_by`, `sort_order`, `search`, `type`, `category`
 
@@ -244,7 +252,7 @@ Production URLs:
 | `test_transactions.py` | CRUD, category normalization, user isolation |
 | `test_budgets.py` | CRUD, case-insensitive progress |
 | `test_dashboard.py` | Balance aggregation, monthly filtering, widget limits |
-| `test_ai.py` | AI disabled fallback, insights generation, mocked Gemini, error mapping |
+| `test_ai.py` | AI disabled fallback, insights generation, action parsing/validation/execution, mocked Gemini, error mapping |
 
 Run from `backend/` with the virtual environment activated:
 
@@ -388,6 +396,45 @@ Integrated a Gemini-powered AI financial assistant that generates personalized f
 - Production configuration is stored through ECS task definition environment variables (or secrets)
 - Tests force `AI_ENABLED=false` in `conftest.py` to avoid real API calls
 
+### Natural Language Financial Actions (M19)
+
+Users can create transactions and budgets from plain English on the dashboard. The AI interprets intent; existing CRUD services perform all database writes.
+
+**Status:** Complete
+
+**Summary:** The backend sends the user's message to Gemini with a structured prompt (reference date, relative date rules, merchant/category mapping, income vs expense wording). Gemini returns JSON; the backend validates and executes supported intents via `create_transaction_for_user()` and `create_budget_for_user()`. The AI never writes directly to the database.
+
+**Supported examples:**
+- "I spent $42 at Costco"
+- "I got paid $1800"
+- "Make a $250 grocery budget"
+- "I paid $65 for gas yesterday"
+- "I bought lunch for $17"
+
+**Frontend (`AIActionsCard`):**
+- Textarea for natural language input; submit button with loading state
+- Loading skeleton and pulse animation while Gemini parses the message
+- Duplicate-request protection (ignores repeat submits while in flight)
+- Success state with created transaction or budget details (`CheckCircle2`)
+- Clear error messages for parse errors, validation errors, rate limits, and auth expiry
+- `onActionSuccess` callback triggers silent dashboard refresh (recent transactions, budget overview, summary cards)
+
+**Backend pipeline:**
+1. `POST /ai/action` — authenticated; receives `{ "message": "..." }`
+2. Empty message → `validation_error` (no Gemini call)
+3. `build_action_prompt()` — reference date, relative dates (today, yesterday, last Friday, this morning, last week), merchant/category hints, example phrases
+4. `generate_text()` — Gemini returns JSON only
+5. `parse_action_json()` — Pydantic models (`CreateTransactionAction`, `CreateBudgetAction`, `UnknownAction`)
+6. `validate_transaction_action()` / `validate_budget_action()` — reject ambiguous/generic descriptions
+7. `resolve_action_date()` — `today`, `yesterday`, or ISO `YYYY-MM-DD`
+8. `execute_parsed_action()` — delegates to domain services with `TransactionCreate` / `BudgetCreate` schemas (same validation as manual CRUD)
+9. Unknown or unsupported intents → `validation_error` with user-facing reason (no DB write)
+
+**Security:**
+- `GEMINI_API_KEY` remains backend-only; only the user's message is sent to Gemini (no financial aggregates, emails, or IDs)
+- AI output is validated before any write; malformed JSON and ambiguous intents never reach the database
+- All creates are scoped to the authenticated user via existing service functions
+
 ---
 
 ## What Is NOT Implemented
@@ -402,11 +449,10 @@ Integrated a Gemini-powered AI financial assistant that generates personalized f
 - Dashboard date range selector UI (removed; backend params remain)
 
 **Future AI features (not yet built):**
-- Natural language transaction creation
-- Natural language budget creation
 - AI chat assistant with conversation history
 - Stored AI conversations
 - AI memory / personalization beyond per-request context
+- Auto-refresh on `/transactions` and `/budgets` pages after AI actions (dashboard refreshes today)
 
 ---
 
@@ -422,19 +468,19 @@ Integrated a Gemini-powered AI financial assistant that generates personalized f
 ├── frontend/
 │   ├── Dockerfile
 │   ├── app/                    layout, login, register, (main) pages, /health, not-found
-│   ├── components/             auth, budgets, dashboard (incl. AIInsightsCard), layout, transactions, ui
+│   ├── components/             auth, budgets, dashboard (AIInsightsCard, AIActionsCard), layout, transactions, ui
 │   ├── hooks/                  use-media-query
 │   └── lib/                    api, auth, format, parse-insights, types
 ├── backend/
 │   ├── Dockerfile
 │   ├── pytest.ini
 │   ├── requirements-dev.txt
-│   ├── tests/                  conftest + auth/transactions/budgets/dashboard/ai tests
+│   ├── tests/                  conftest + auth/transactions/budgets/dashboard/ai tests (66 tests)
 │   └── app/
 │       ├── main.py
 │       ├── core/               config, auth, categories, cookies
 │       ├── api/routes/         auth, ai, budgets, dashboard, transactions
-│       ├── services/           ai, ai_insights, budget, dashboard
+│       ├── services/           ai, ai_action, ai_insights, budget, dashboard, transaction
 │       ├── db/                 session, migrate
 │       ├── models/
 │       └── schemas/
@@ -474,10 +520,12 @@ npm run dev
 2. Create/edit/delete transactions with a custom date and free-text category
 3. Use search, type/category filters, and pagination on `/transactions`
 4. Create budgets on `/budgets`; verify progress updates
-5. Open `/dashboard` — summary cards, top 5 budgets, 5 recent transactions, charts, AI insights (if enabled)
-6. Confirm sidebar spans full viewport height at `lg+`; hamburger navigation works below `lg`
-7. Sign in as a second user — confirm data isolation
-8. Resize browser to 320px, 768px, and 1440px — confirm no horizontal scrolling on dashboard, transactions, budgets, login, and 404
+5. Open `/dashboard` — summary cards, top 5 budgets, 5 recent transactions, charts, AI insights and AI actions (if enabled)
+6. On dashboard AI actions card, try "I spent $42 at Costco" — confirm transaction appears in recent transactions after success
+7. Confirm sidebar spans full viewport height at `lg+`; hamburger navigation works below `lg`
+8. Sign in as a second user — confirm data isolation
+9. Resize browser to 320px, 768px, and 1440px — confirm no horizontal scrolling on dashboard, transactions, budgets, login, and 404
+10. Try an ambiguous AI action (e.g. "spent money") — confirm validation error, no new transaction
 
 ---
 

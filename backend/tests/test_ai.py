@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 import pytest
@@ -7,8 +7,11 @@ from google.genai.errors import ClientError, ServerError
 from app.schemas.ai import AIGenerateTextResponse
 from app.services.ai_action_service import (
     budget_create_from_action,
+    build_action_prompt,
     parse_action_json,
+    resolve_action_date,
     transaction_create_from_action,
+    validate_transaction_action,
 )
 from app.services.ai_service import AIServiceError, generate_text, public_ai_error_message
 from tests.conftest import create_transaction, login_user
@@ -405,9 +408,10 @@ def test_action_parses_unknown_intent(mock_generate_text, client, user_a):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "success"
-    assert data["action"]["intent"] == "unknown"
-    assert data["action"]["reason"] == "Message is a general question"
+    assert data["status"] == "validation_error"
+    assert data["message"] == "Message is a general question"
+    assert data["action"] is None
+    assert client.get("/transactions").json()["total_count"] == 0
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -424,9 +428,8 @@ def test_action_maps_unsupported_intent_to_unknown(mock_generate_text, client, u
 
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "success"
-    assert data["action"]["intent"] == "unknown"
-    assert "Unsupported intent" in data["action"]["reason"]
+    assert data["status"] == "validation_error"
+    assert "Unsupported action" in data["message"]
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -479,21 +482,41 @@ def test_action_handles_invalid_transaction_date(mock_generate_text, client, use
         enabled=True,
         text=(
             '{"intent": "create_transaction", "amount": 42.18, "type": "expense", '
-            '"category": "Dining", "description": "Dinner", "date": "yesterday"}'
+            '"category": "Dining", "description": "Dinner", "date": "not-a-date"}'
         ),
     )
 
     response = client.post(
         "/ai/action",
-        json={"message": "I spent $42.18 on dinner yesterday"},
+        json={"message": "I spent $42.18 on dinner someday"},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "validation_error"
     assert data["transaction"] is None
-    assert "invalid" in data["message"].lower()
     assert client.get("/transactions").json()["total_count"] == 0
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_resolves_yesterday_date(mock_generate_text, client, user_a):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text=(
+            '{"intent": "create_transaction", "amount": 65.00, "type": "expense", '
+            '"category": "Gas", "description": "Gas", "date": "yesterday"}'
+        ),
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I paid $65 for gas yesterday"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["transaction"]["amount"] == "65.00"
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -512,7 +535,7 @@ def test_action_handles_malformed_json(mock_generate_text, client, user_a):
     data = response.json()
     assert data["status"] == "parse_error"
     assert data["action"] is None
-    assert "parse" in data["message"].lower()
+    assert "understand" in data["message"].lower()
 
 
 @patch("app.services.ai_action_service.generate_text")
@@ -638,4 +661,62 @@ def test_parse_action_json_unsupported_intent():
     action = parse_action_json('{"intent": "transfer_funds"}')
 
     assert action.intent == "unknown"
-    assert "Unsupported intent" in action.reason
+    assert "Unsupported action" in action.reason
+
+
+def test_build_action_prompt_includes_reference_date_and_examples():
+    prompt = build_action_prompt("I spent $42 at Costco")
+
+    assert "Reference date" in prompt
+    assert "I spent $42 at Costco" in prompt
+    assert "Costco" in prompt
+    assert "I got paid $1800" in prompt
+    assert "Make a $250 grocery budget" in prompt
+    assert "yesterday" in prompt.lower()
+    assert "last Friday" in prompt
+
+
+def test_resolve_action_date_supports_yesterday():
+    reference = date(2026, 7, 15)
+
+    assert resolve_action_date("today", reference=reference) == reference
+    assert resolve_action_date("yesterday", reference=reference) == date(2026, 7, 14)
+    assert resolve_action_date("2026-07-10", reference=reference) == date(2026, 7, 10)
+
+
+def test_validate_transaction_action_rejects_generic_description():
+    from app.schemas.ai import CreateTransactionAction
+
+    action = CreateTransactionAction(
+        intent="create_transaction",
+        amount="10.00",
+        type="expense",
+        category="Dining",
+        description="expense",
+        date="today",
+    )
+
+    assert validate_transaction_action(action) is not None
+
+
+@patch("app.services.ai_action_service.generate_text")
+def test_action_rejects_ambiguous_transaction_description(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text=(
+            '{"intent": "create_transaction", "amount": 42.00, "type": "expense", '
+            '"category": "Dining", "description": "expense", "date": "today"}'
+        ),
+    )
+
+    response = client.post(
+        "/ai/action",
+        json={"message": "I spent money"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "validation_error"
+    assert data["transaction"] is None
