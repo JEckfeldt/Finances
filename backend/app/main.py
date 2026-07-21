@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings, validate_settings, verify_database_connection
+from app.core.performance import RequestTimingMiddleware, register_sqlalchemy_query_logging
 from app.db.base import Base
 from app.db.migrate import migrate_foreign_keys, migrate_transactions_table, migrate_users_table
 from app.db.session import engine
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
         settings.COOKIE_SAMESITE,
     )
     _initialize_database_schema()
+    register_sqlalchemy_query_logging(engine)
     logger.info("Application startup complete")
     yield
     logger.info("Application shutdown")
@@ -64,6 +66,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestTimingMiddleware)
 
 app.include_router(api_router)
 
