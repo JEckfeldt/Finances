@@ -33,6 +33,117 @@ def _apply_transaction_date_filters(
     return stmt
 
 
+def _decimal_scalar(value) -> Decimal:
+    return Decimal(str(value))
+
+
+def _fetch_period_income_expense_totals(
+    db: Session,
+    user_id: int,
+    start_date: date | None,
+    end_date: date | None,
+) -> tuple[Decimal, Decimal]:
+    """Single query for income and expense sums over an optional date range."""
+    stmt = select(
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.INCOME
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.EXPENSE
+            ),
+            0,
+        ),
+    ).where(Transaction.user_id == user_id)
+    stmt = _apply_transaction_date_filters(stmt, start_date, end_date)
+    income, expenses = db.execute(stmt).one()
+    return _decimal_scalar(income), _decimal_scalar(expenses)
+
+
+def _fetch_balance_and_monthly_summary_totals(
+    db: Session,
+    user_id: int,
+    month_start: date,
+    month_end: date,
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """
+    Single query for all-time income/expense totals and current-month summary totals.
+    """
+    stmt = select(
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.INCOME
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.EXPENSE
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.INCOME,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            ),
+            0,
+        ),
+    ).where(Transaction.user_id == user_id)
+    row = db.execute(stmt).one()
+    return tuple(_decimal_scalar(value) for value in row)
+
+
+def _fetch_monthly_income_expense_trends(
+    db: Session,
+    user_id: int,
+    start_date: date | None,
+    end_date: date | None,
+) -> tuple[dict[tuple[int, int], Decimal], dict[tuple[int, int], Decimal]]:
+    """Single grouped query for monthly income and expense trend totals."""
+    month_bucket = func.date_trunc(
+        "month", cast(Transaction.transaction_date, DateTime)
+    ).label("month_bucket")
+    stmt = select(
+        month_bucket,
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.INCOME
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(Transaction.amount).filter(
+                Transaction.type == TransactionType.EXPENSE
+            ),
+            0,
+        ),
+    ).where(Transaction.user_id == user_id)
+    stmt = _apply_transaction_date_filters(stmt, start_date, end_date)
+    stmt = stmt.group_by(month_bucket)
+
+    income_by_month: dict[tuple[int, int], Decimal] = {}
+    expense_by_month: dict[tuple[int, int], Decimal] = {}
+    for month_value, income, expenses in db.execute(stmt).all():
+        key = (month_value.year, month_value.month)
+        income_by_month[key] = _decimal_scalar(income)
+        expense_by_month[key] = _decimal_scalar(expenses)
+
+    return income_by_month, expense_by_month
+
+
 def _sum_by_type(
     db: Session,
     user_id: int,
@@ -125,29 +236,24 @@ def get_dashboard_for_user(
     has_date_filter = start_date is not None or end_date is not None
 
     if has_date_filter:
-        period_income = _sum_by_type(
-            db, user_id, TransactionType.INCOME, start_date, end_date
-        )
-        period_expenses = _sum_by_type(
-            db, user_id, TransactionType.EXPENSE, start_date, end_date
+        period_income, period_expenses = _fetch_period_income_expense_totals(
+            db, user_id, start_date, end_date
         )
         current_balance = period_income - period_expenses
         summary = MonthlySummary(income=period_income, expenses=period_expenses)
     else:
-        total_income = _sum_by_type(db, user_id, TransactionType.INCOME)
-        total_expenses = _sum_by_type(db, user_id, TransactionType.EXPENSE)
-        current_balance = total_income - total_expenses
-
         now = datetime.now(UTC).date()
         month_start, month_end = _month_date_bounds(now.year, now.month)
-        summary = MonthlySummary(
-            income=_sum_by_type(
-                db, user_id, TransactionType.INCOME, month_start, month_end
-            ),
-            expenses=_sum_by_type(
-                db, user_id, TransactionType.EXPENSE, month_start, month_end
-            ),
+        (
+            total_income,
+            total_expenses,
+            month_income,
+            month_expenses,
+        ) = _fetch_balance_and_monthly_summary_totals(
+            db, user_id, month_start, month_end
         )
+        current_balance = total_income - total_expenses
+        summary = MonthlySummary(income=month_income, expenses=month_expenses)
 
     recent_stmt = (
         select(Transaction)
@@ -167,11 +273,8 @@ def get_dashboard_for_user(
         reverse=True,
     )[:BUDGET_OVERVIEW_LIMIT]
 
-    income_by_month = _totals_by_month_and_type(
-        db, user_id, TransactionType.INCOME, start_date, end_date
-    )
-    expense_by_month = _totals_by_month_and_type(
-        db, user_id, TransactionType.EXPENSE, start_date, end_date
+    income_by_month, expense_by_month = _fetch_monthly_income_expense_trends(
+        db, user_id, start_date, end_date
     )
 
     month_keys = _months_in_range(start_date, end_date, DEFAULT_TREND_MONTH_COUNT)

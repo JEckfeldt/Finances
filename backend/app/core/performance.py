@@ -25,6 +25,37 @@ _query_stats: contextvars.ContextVar[dict[str, float | int] | None] = contextvar
 )
 
 _query_logging_registered = False
+_performance_logging_configured = False
+
+
+def configure_performance_logging() -> None:
+    """
+    Enable DEBUG output for app.performance in development only.
+
+    Root logging stays at INFO so other loggers are unchanged. Production is not
+    affected (this function returns immediately when APP_ENV=production).
+    """
+    global _performance_logging_configured
+
+    if not settings.is_development:
+        return
+
+    if _performance_logging_configured:
+        return
+
+    perf_logger.setLevel(logging.DEBUG)
+
+    if not perf_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+        )
+        perf_logger.addHandler(handler)
+
+    perf_logger.propagate = False
+    _performance_logging_configured = True
+    perf_logger.info("Performance DEBUG logging enabled (individual SQL queries)")
 
 
 def _reset_query_stats() -> None:

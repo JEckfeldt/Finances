@@ -158,3 +158,107 @@ def test_dashboard_budget_overview_limited_to_five_highest_usage(client, user_a)
 
     percentages = [item["percentage"] for item in overview]
     assert percentages == sorted(percentages, reverse=True)
+
+
+def test_dashboard_monthly_trends_reflect_transaction_totals(client, user_a):
+    create_transaction(
+        client,
+        description="Current income",
+        amount="200.00",
+        transaction_type="income",
+        category="Salary",
+        transaction_date=_current_month_date(),
+    )
+    create_transaction(
+        client,
+        description="Current expense",
+        amount="50.00",
+        transaction_type="expense",
+        category="Food",
+        transaction_date=_current_month_date(),
+    )
+    create_transaction(
+        client,
+        description="Previous expense",
+        amount="80.00",
+        transaction_type="expense",
+        category="Food",
+        transaction_date=_previous_month_date(),
+    )
+
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+    data = response.json()
+
+    current_label = datetime.now(UTC).strftime("%b %Y")
+    previous = datetime.now(UTC).date()
+    year = previous.year
+    month = previous.month - 1
+    if month == 0:
+        month = 12
+        year -= 1
+    previous_label = datetime(year, month, 1, tzinfo=UTC).strftime("%b %Y")
+
+    spending_by_month = {
+        item["month"]: Decimal(item["total_expenses"])
+        for item in data["monthly_spending_trend"]
+    }
+    comparison_by_month = {
+        item["month"]: item for item in data["monthly_comparison_trend"]
+    }
+
+    assert spending_by_month[current_label] == Decimal("50.00")
+    assert spending_by_month[previous_label] == Decimal("80.00")
+    assert comparison_by_month[current_label]["income"] == "200.00"
+    assert comparison_by_month[current_label]["expenses"] == "50.00"
+    assert comparison_by_month[current_label]["net_savings"] == "150.00"
+    assert len(data["monthly_spending_trend"]) == 6
+    assert len(data["monthly_comparison_trend"]) == 6
+
+
+def test_dashboard_response_fields_unchanged(client, user_a):
+    create_transaction(
+        client,
+        amount="25.00",
+        category="Food",
+        transaction_date=_current_month_date(),
+    )
+
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert set(data.keys()) == {
+        "current_balance",
+        "monthly_summary",
+        "recent_transactions",
+        "budget_overview",
+        "monthly_spending_trend",
+        "monthly_comparison_trend",
+    }
+    assert set(data["monthly_summary"].keys()) == {"income", "expenses"}
+    assert isinstance(data["recent_transactions"], list)
+    assert isinstance(data["budget_overview"], list)
+    assert isinstance(data["monthly_spending_trend"], list)
+    assert isinstance(data["monthly_comparison_trend"], list)
+
+
+def test_dashboard_sql_query_count(client, user_a):
+    from sqlalchemy import event
+
+    from app.db.session import engine
+
+    query_count = 0
+
+    def _count_query(*_args, **_kwargs) -> None:
+        nonlocal query_count
+        query_count += 1
+
+    event.listen(engine, "after_cursor_execute", _count_query)
+    try:
+        response = client.get("/dashboard")
+    finally:
+        event.remove(engine, "after_cursor_execute", _count_query)
+
+    assert response.status_code == 200
+    assert query_count == 6
