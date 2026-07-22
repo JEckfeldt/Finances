@@ -168,3 +168,61 @@ class RequestTimingMiddleware:
                 status_code,
                 duration_ms,
             )
+
+
+def estimate_prompt_tokens(char_count: int) -> int:
+    """Rough pre-call token estimate (~4 characters per token) for logging."""
+    if char_count <= 0:
+        return 0
+    return max(1, (char_count + 3) // 4)
+
+
+def log_ai_insights_pipeline(
+    *,
+    user_id: int,
+    financial_data_fetch_ms: float,
+    prompt_construction_ms: float,
+    transaction_count_total: int,
+    transaction_count_current_month: int,
+    prompt_chars: int,
+    prompt_tokens_estimated: int,
+    gemini_request_ms: float | None,
+    gemini_input_tokens: int | None,
+    gemini_output_tokens: int | None,
+    total_request_ms: float,
+    ai_enabled: bool,
+    cache: str = "miss",
+) -> None:
+    """Structured timing for POST /ai/insights (no financial payload)."""
+    gemini_ms = (
+        f"{gemini_request_ms:.2f}"
+        if gemini_request_ms is not None
+        else "n/a"
+    )
+    in_tokens = (
+        str(gemini_input_tokens) if gemini_input_tokens is not None else "n/a"
+    )
+    out_tokens = (
+        str(gemini_output_tokens) if gemini_output_tokens is not None else "n/a"
+    )
+
+    perf_logger.info(
+        "AI insights user_id=%s cache=%s fetch=%.2fms prompt_build=%.2fms "
+        "transactions_total=%d transactions_current_month=%d "
+        "prompt_chars=%d prompt_tokens_est=%d "
+        "gemini=%sms gemini_in_tokens=%s gemini_out_tokens=%s "
+        "total=%.2fms ai_enabled=%s",
+        user_id,
+        cache,
+        financial_data_fetch_ms,
+        prompt_construction_ms,
+        transaction_count_total,
+        transaction_count_current_month,
+        prompt_chars,
+        prompt_tokens_estimated,
+        gemini_ms,
+        in_tokens,
+        out_tokens,
+        total_request_ms,
+        ai_enabled,
+    )

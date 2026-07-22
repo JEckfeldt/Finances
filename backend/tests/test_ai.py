@@ -172,6 +172,65 @@ def test_insights_rate_limit_failure_returns_clear_message(
     assert "rate limit" in response.json()["detail"].lower()
 
 
+@patch("app.services.ai_insights_service.settings.AI_ENABLED", True)
+@patch("app.services.ai_insights_service.generate_text")
+def test_insights_cache_hit_returns_existing_insight(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.return_value = AIGenerateTextResponse(
+        enabled=True,
+        text="Stable cached insight body.",
+    )
+    create_transaction(
+        client,
+        amount="75.00",
+        category="Food",
+        transaction_date=_current_month_date(),
+    )
+
+    first = client.post("/ai/insights")
+    second = client.post("/ai/insights")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["insights"] == second.json()["insights"]
+    assert first.json()["insights"] == "Stable cached insight body."
+    assert mock_generate_text.call_count == 1
+
+
+@patch("app.services.ai_insights_service.settings.AI_ENABLED", True)
+@patch("app.services.ai_insights_service.generate_text")
+def test_insights_cache_regenerates_when_financial_data_changes(
+    mock_generate_text, client, user_a
+):
+    mock_generate_text.side_effect = [
+        AIGenerateTextResponse(enabled=True, text="Insight before change."),
+        AIGenerateTextResponse(enabled=True, text="Insight after change."),
+    ]
+    create_transaction(
+        client,
+        amount="50.00",
+        category="Food",
+        transaction_date=_current_month_date(day=5),
+    )
+
+    before = client.post("/ai/insights")
+    assert before.json()["insights"] == "Insight before change."
+
+    create_transaction(
+        client,
+        amount="25.00",
+        category="Food",
+        transaction_date=_current_month_date(day=12),
+    )
+
+    after = client.post("/ai/insights")
+
+    assert after.status_code == 200
+    assert after.json()["insights"] == "Insight after change."
+    assert mock_generate_text.call_count == 2
+
+
 def test_public_ai_error_message_maps_rate_limit():
     error = ClientError(429, {"error": {"message": "quota exceeded"}}, None)
 

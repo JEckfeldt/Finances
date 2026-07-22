@@ -9,6 +9,7 @@ Architecture and security:
 """
 
 import logging
+import time
 
 from google import genai
 from google.genai.errors import APIError
@@ -55,6 +56,7 @@ def generate_text(prompt: str) -> AIGenerateTextResponse:
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+    api_start = time.perf_counter()
     try:
         response = client.models.generate_content(
             model=settings.AI_MODEL,
@@ -63,9 +65,20 @@ def generate_text(prompt: str) -> AIGenerateTextResponse:
     except Exception as exc:
         logger.exception("Gemini API request failed")
         raise AIServiceError(public_ai_error_message(exc)) from exc
+    provider_duration_ms = (time.perf_counter() - api_start) * 1000
 
     text = (response.text or "").strip()
     if not text:
         raise AIServiceError("AI service returned an empty response. Please try again later.")
 
-    return AIGenerateTextResponse(enabled=True, text=text)
+    usage = response.usage_metadata
+    input_tokens = usage.prompt_token_count if usage else None
+    output_tokens = usage.candidates_token_count if usage else None
+
+    return AIGenerateTextResponse(
+        enabled=True,
+        text=text,
+        provider_duration_ms=provider_duration_ms,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )

@@ -22,6 +22,14 @@ os.environ["GEMINI_API_KEY"] = ""
 from app.db.base import Base  # noqa: E402
 from app.db.session import SessionLocal, engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.ai_insights_cache import clear_ai_insights_cache  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_ai_insights_cache() -> Generator[None, None, None]:
+    clear_ai_insights_cache()
+    yield
+    clear_ai_insights_cache()
 
 
 def _ensure_test_database() -> None:

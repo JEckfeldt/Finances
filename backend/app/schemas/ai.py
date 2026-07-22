@@ -19,6 +19,9 @@ class AIGenerateTextResponse(BaseModel):
     enabled: bool
     text: str | None = None
     message: str | None = None
+    provider_duration_ms: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 class AIInsightsResponse(BaseModel):

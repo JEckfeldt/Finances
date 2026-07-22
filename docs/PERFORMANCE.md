@@ -5,6 +5,7 @@ This document records **measurable** backend and infrastructure performance work
 **Related tooling (not documented in depth here):**
 
 - Request and SQL timing: `backend/app/core/performance.py` (`app.performance` logger)
+- AI insights pipeline timing and cache logging: same module (`log_ai_insights_pipeline`)
 - Local benchmark dataset: `backend/scripts/benchmark_seed.py` (see `backend/scripts/README.md`)
 
 ---
@@ -154,6 +155,128 @@ HTTP GET /dashboard 200 14.71ms queries=6 db=7.10ms
 ### Resume bullet candidate
 
 > Instrumented backend API performance and optimized PostgreSQL dashboard analytics queries, reducing database round trips by 40%, query execution time by 57%, and API latency by 64% under a 10K transaction benchmark workload.
+
+---
+
+## AI Insights Caching Optimization
+
+**Status:** Complete  
+**Area:** `POST /ai/insights` — `backend/app/services/ai_insights_service.py`, `backend/app/services/ai_insights_cache.py`  
+**Date recorded:** July 2026
+
+### Problem identified
+
+Repeat `POST /ai/insights` requests on the benchmark account were dominated by Gemini latency, not database work.
+
+| Symptom | Detail |
+|---------|--------|
+| User-visible delay | ~7 seconds per uncached insights request |
+| Dataset | Benchmark seed: **10,001** transactions (same user as dashboard benchmark), user `benchmark@local.dev` |
+| Database | Not the bottleneck |
+
+**Baseline metrics (cache miss, representative Docker Compose run):**
+
+| Metric | Value |
+|--------|--------|
+| `transactions_total` | **10,001** |
+| `transactions_current_month` | 133 (same run) |
+| Database fetch (context + metrics counts) | **~26.58 ms** (`fetch=` in insights log) |
+| Prompt construction | **~0.02 ms** (negligible) |
+| Gemini generation | **~7,409 ms** |
+| Gemini input tokens | **681** |
+| Gemini output tokens | **384** |
+| Total request duration | **~7,479 ms** |
+
+Example log line:
+
+```text
+INFO [app.performance] AI insights user_id=3 cache=miss fetch=26.58ms prompt_build=0.02ms transactions_total=10001 transactions_current_month=133 prompt_chars=1680 prompt_tokens_est=420 gemini=7409.39ms gemini_in_tokens=681 gemini_out_tokens=384 total=7479.27ms ai_enabled=True
+INFO [app.performance] HTTP POST /ai/insights 200 7501.09ms queries=10 db=17.20ms
+```
+
+---
+
+### Investigation
+
+Before changing behavior, the insights pipeline was instrumented (`log_ai_insights_pipeline` in `backend/app/core/performance.py`) to measure each request:
+
+| Signal | Purpose |
+|--------|---------|
+| Database fetch time | Time to load insight context (aggregates + metric counts) |
+| Prompt construction time | Time to build the prompt string |
+| Prompt size | Character count and estimated token count |
+| Gemini latency | Wall time for `generate_content` |
+| Token usage | Provider `usage_metadata` (input and output tokens) |
+| Total request latency | End-to-end time in `generate_financial_insights` |
+| Cache result | `cache=hit` or `cache=miss` (added with caching) |
+
+Logs contain **no** raw financial payloads (amounts, categories, or prompt text).
+
+Profiling conclusion: with ~681 input tokens and sub-30 ms database work, **repeated Gemini generation** on every dashboard refresh was the bottleneck.
+
+---
+
+### Changes implemented
+
+| Change | Detail |
+|--------|--------|
+| **Fingerprint-based cache** | After building `FinancialInsightContext`, a **SHA-256** fingerprint is computed from insight-relevant aggregates (month label, current-month income/expense, spending by category, budget utilization, recent monthly trends). |
+| **Per-user storage** | In-process cache (`ai_insights_cache.py`) stores the last successful `AIInsightsResponse` per `user_id` keyed by fingerprint. |
+| **Invalidation** | Cache misses when financial state affecting the prompt changes: new/updated/deleted **transactions**, **budget** changes, or **calendar month rollover** (month label and trend window shift). |
+| **Cache hit path** | Matching fingerprint returns the stored response **without** rebuilding the prompt or calling Gemini. |
+| **Cache miss path** | Unchanged prompt and model behavior; successful responses are stored when `AI_ENABLED=true`. |
+| **API contract** | `AIInsightsResponse` JSON shape unchanged. |
+| **Tests** | `test_insights_cache_hit_returns_existing_insight`, `test_insights_cache_regenerates_when_financial_data_changes` in `backend/tests/test_ai.py`. |
+
+Reproduce measurements: log in as the benchmark user, open the dashboard (or call `POST /ai/insights` twice without changing data), and inspect `AI insights` lines in backend logs.
+
+---
+
+### After optimization (cache hit)
+
+**Same benchmark environment; second request with unchanged financial aggregates:**
+
+| Metric | Value |
+|--------|--------|
+| Cache | **hit** |
+| Database fetch | **~25.90 ms** |
+| Prompt construction | **0 ms** (skipped) |
+| Gemini generation | **skipped** |
+| Gemini tokens | **0** (no API call) |
+| Total request duration | **~26 ms** |
+
+Example log lines:
+
+```text
+INFO [app.performance] AI insights user_id=3 cache=hit fetch=25.90ms prompt_build=0.00ms transactions_total=10001 transactions_current_month=133 prompt_chars=0 prompt_tokens_est=0 gemini=n/a gemini_in_tokens=n/a gemini_out_tokens=n/a total=26.02ms ai_enabled=True
+INFO [app.performance] HTTP POST /ai/insights 200 30.02ms queries=10 db=18.43ms
+```
+
+---
+
+### Improvement summary
+
+| Metric | Before (cache miss) | After (cache hit) | Improvement |
+|--------|---------------------|-------------------|-------------|
+| Total API latency | ~7,479 ms | ~26 ms | **~−99.7%** on repeat requests |
+| Gemini latency | ~7,409 ms | 0 ms (skipped) | **No duplicate inference** |
+| Token usage | 681 in + 384 out | 0 | **Avoids repeat API cost** |
+
+*First request after a data change remains a cache miss and still invokes Gemini. Latency varies with network and provider load; compare using the same environment and unchanged data between requests.*
+
+---
+
+### Architecture note
+
+The cache is **in-process** (per backend worker). That fits the current **single-instance** Docker Compose and typical single-task deployment: repeat dashboard loads on the same process avoid redundant Gemini calls.
+
+For **multi-instance** production (multiple ECS tasks or Uvicorn workers), each instance maintains its own cache. A shared store (e.g. **Redis**) keyed by `(user_id, fingerprint)` would be a natural follow-up to deduplicate insights across instances.
+
+---
+
+### Resume bullet candidate
+
+> Profiled AI insights latency (681-token prompts, ~7.4s Gemini vs ~26ms DB), added SHA-256 fingerprint caching of insight responses, and reduced repeat `POST /ai/insights` latency by ~99.7% while eliminating duplicate Gemini token usage on unchanged financial data.
 
 ---
 
