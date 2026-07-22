@@ -417,7 +417,7 @@ Health checks still hit **`/health`** with a **5 s** timeout and **2** failed ch
 
 | Opportunity | Rationale |
 |-------------|-----------|
-| **Parallel backend and frontend ECS deploys** | Services are independent; running both stability waits concurrently could save ~**2 min** wall-clock vs sequential deploys (after images are built). |
+| **Parallel backend and frontend ECS deploys** | **Done** — see [Parallel ECS deployments (GitHub Actions)](#parallel-ecs-deployments-github-actions) below. |
 | **Reduce ECR image pull time** | Fargate **pullStartedAt → pullStoppedAt** still adds tens of seconds per new task; smaller images and warm nodes help. |
 | **Backend Docker image optimization** | Backend build is still uncached in GHA; slimmer images improve pull and cold-start on the task side. |
 | **Review target group deregistration delay** | Default **deregistration_delay** can lengthen drain tail on old targets; worth profiling if deploy steps still have a long tail after **healthy**. |
@@ -428,6 +428,128 @@ Health checks still hit **`/health`** with a **5 s** timeout and **2** failed ch
 ### Resume bullet candidate
 
 > Profiled ECS Fargate deploy latency (ALB health checks + `wait-for-service-stability`), tuned target group intervals and healthy thresholds for `/health`, and cut per-service ECS deploy wait by ~1 minute (~2 minutes total) without code or pipeline changes.
+
+---
+
+## Parallel ECS deployments (GitHub Actions)
+
+**Status:** Complete  
+**Area:** CD workflow — `.github/workflows/deploy.yml` (multi-job pipeline)  
+**Date recorded:** July 2026  
+**Benchmark run:** GitHub Actions **run #41**
+
+### Context
+
+After ALB target group tuning, **backend** and **frontend** ECS deploy steps still ran **sequentially** in a single job: backend **`wait-for-service-stability`**, backend verify, then frontend deploy. **Combined ECS stability wait** was approximately **4 minutes** (~2 minutes per service). Frontend **BuildKit GHA cache** (see [Frontend CI/CD Build Optimization](#frontend-cicd-build-optimization)) already lived in the same workflow’s build phase.
+
+An AWS/workflow audit confirmed **independent** ECS services, task definitions, and ECR repositories — no cluster-level lock preventing concurrent rollouts.
+
+---
+
+### Architecture change
+
+The monolithic **`deploy`** job was split into four jobs:
+
+```text
+build
+ ├── deploy-backend   (parallel)
+ └── deploy-frontend  (parallel)
+         │
+      verify
+```
+
+| Job | Responsibility |
+|-----|----------------|
+| **`build`** | Validate config, checkout, AWS/ECR login, push **backend** + **frontend** images (`{repo}:{commit-sha}`), frontend **BuildKit** `cache-from` / `cache-to` (`type=gha`, `mode=max`). **Outputs:** `sha`, `backend_image`, `frontend_image`. |
+| **`deploy-backend`** | Download/render backend task definition, update image URI, **`amazon-ecs-deploy-task-definition`** with **`wait-for-service-stability: true`**. |
+| **`deploy-frontend`** | Same for frontend (runs **concurrently** with `deploy-backend` after `build`). |
+| **`verify`** | **`needs`:** both deploy jobs — backend **`BACKEND_HEALTH_URL`** and frontend **`FRONTEND_URL`** curl loops (unchanged retries), deployment summary. |
+
+**Preserved:** `concurrency: production-deploy`, workflow `env` / secrets, ECS cluster and service names, task-definition merge behavior, and application runtime. **No AWS infrastructure changes** were required.
+
+---
+
+### Why AWS allows parallel service deployment
+
+| Resource | Backend | Frontend |
+|----------|---------|----------|
+| ECS **service** | `ECS_BACKEND_SERVICE` | `ECS_FRONTEND_SERVICE` |
+| **Task definition** family | Separate revision per deploy | Separate revision per deploy |
+| **ECR image** | `ECR_BACKEND_REPOSITORY:sha` | `ECR_FRONTEND_REPOSITORY:sha` |
+| **Load balancer / TG** | API ALB + TG | App ALB + TG |
+
+`UpdateService` on one service does not block the other on the same cluster. GitHub Actions parallelism is orchestration only; ECS still performs a **rolling deploy per service** (Fargate pull → start → ALB **healthy** → drain old task).
+
+---
+
+### Before vs after timing
+
+**Before (sequential ECS deploys, post–ALB tuning):**
+
+| Phase | Duration (approx.) |
+|--------|---------------------|
+| Combined ECS stability wait (backend then frontend) | **~4 min** |
+
+**After (run #41 — parallel deploy jobs):**
+
+| Job / phase | Duration |
+|-------------|----------|
+| Build and push images | **1 min 5 s** |
+| Deploy backend to ECS | **3 min 16 s** (parallel with frontend) |
+| Deploy frontend to ECS | **4 min 1 s** (**critical path**) |
+| Verify deployment | **3 s** |
+| **Total workflow** | **5 min 17 s** |
+
+**Results:**
+
+- Backend and frontend ECS deployments **execute concurrently** on separate runners.
+- Workflow **critical path** for the deploy phase is **`max(deploy-backend, deploy-frontend)`** ≈ **4 min** (frontend-bound on run #41), not the **sum** of both (~7 min if sequential).
+- **Estimated savings:** ~**3 minutes** per deployment versus sequential ECS waits for the same measured job durations (~7 min 17 s → ~4 min 1 s deploy wall-clock, plus verify unchanged).
+
+*Individual job times vary with Fargate placement, ECR pull, and ALB convergence; use the same run’s job timestamps when comparing.*
+
+---
+
+### Tradeoffs
+
+| Tradeoff | Detail |
+|----------|--------|
+| **Temporary version skew** | During rollout, **new frontend + old backend** or **new backend + old frontend** can coexist for up to ~**max** of the two deploy durations. Acceptable when API changes remain backward compatible (cookie auth, existing JSON contracts). |
+| **No “backend-first” ECS gate** | Public backend health is verified **after both** services deploy, not before frontend rollouts begin. |
+| **Partial failure** | One deploy job can succeed while the other fails; the workflow fails and **`verify`** is skipped, but AWS may temporarily run mismatched revisions until rollback/fix. |
+| **Brief dual rollouts** | Two services rolling at once can mean up to **four** tasks briefly (`desiredCount = 1` each); typically fine on Fargate. |
+
+---
+
+### Remaining optimization opportunities (pipeline)
+
+| Opportunity | Notes |
+|-------------|--------|
+| **Backend Docker BuildKit cache** | Mirror frontend GHA cache in **`build`** to shorten **1 min 5 s** build phase on warm runs. |
+| **Backend image size / pull time** | Shrinks Fargate **pullStopped − pullStarted** on both services. |
+| **Frontend ECS duration** | Run #41 frontend deploy (**4 min 1 s**) exceeded backend (**3 min 16 s**) — profile separately (see below). |
+
+---
+
+### Resume bullet candidate
+
+> Restructured GitHub Actions CD into parallel ECS deploy jobs after a shared build, cutting sequential ECS wait by ~3 minutes per release (run #41: 5m17s total workflow, ~4m critical-path ECS) without AWS or application changes.
+
+---
+
+## Future ECS optimization opportunities
+
+Follow-up work focused on **Fargate rollouts and ALB health**, not workflow orchestration:
+
+| Item | Goal |
+|------|------|
+| **Investigate frontend ECS deployment timing** | Run #41 frontend job (**4 min 1 s**) was the workflow critical path; determine whether pull, Next.js startup, or TG convergence dominates vs backend (**3 min 16 s**). |
+| **Measure ECS task startup vs ALB health checks** | Use **`describe-tasks`** (`pullStartedAt` / `pullStoppedAt` / `startedAt`) and target **health state** transitions during deploy to split pull, process start, and **healthy** latency. |
+| **Tune target group health checks further (if safe)** | Only after profiling — e.g. interval, healthy threshold, **`/health`** matcher — balance speed vs flapping. |
+| **Reduce frontend container startup time** | Smaller standalone image, faster **`node server.js`** readiness; align TG path with lightweight **`/health`**. |
+| **`desiredCount > 1` rolling strategy** | Trade **cost** for faster cutover and less user-visible single-task replacement; requires explicit availability/capacity planning. |
+| **Target group deregistration delay** | Review **`deregistration_delay.timeout_seconds`** if drain tail remains long after **healthy**. |
+| **Backend image optimization** | Uncached backend build + larger image affects **build** job and backend task pull. |
 
 ---
 
