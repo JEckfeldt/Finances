@@ -280,6 +280,81 @@ For **multi-instance** production (multiple ECS tasks or Uvicorn workers), each 
 
 ---
 
+## Frontend CI/CD Build Optimization
+
+**Status:** Complete  
+**Area:** CD workflow — `.github/workflows/deploy.yml` (frontend image build/push only)  
+**Date recorded:** July 2026
+
+### Problem
+
+- Frontend Docker image build and push during CD took approximately **3 minutes 6 seconds**.
+- Every GitHub Actions deployment performed a **cold Docker build**.
+- `npm` dependencies and Next.js build layers were rebuilt on every deployment because **Docker layer caching was not enabled**.
+
+---
+
+### Investigation
+
+The deployment workflow was audited. Findings:
+
+| Finding | Detail |
+|---------|--------|
+| Layer caching | **Not enabled** — deploy used plain `docker build` / `docker push` on ephemeral `ubuntu-latest` runners |
+| Dockerfile | **Already well structured** — multi-stage `deps` → `builder` → `runner` with lockfile-before-`npm ci` ordering |
+| Bottleneck | Repeated **`npm ci`** and **`next build`** on every deploy, not poor Dockerfile layout |
+
+---
+
+### Implementation
+
+| Change | Detail |
+|--------|--------|
+| **Build action** | Replaced the raw frontend `docker build` / `docker push` step with **`docker/build-push-action@v6`** and **`docker/setup-buildx-action@v3`** |
+| **BuildKit cache** | Enabled GitHub Actions cache export/import: `cache-from: type=gha`, `cache-to: type=gha,mode=max` |
+| **Preserved behavior** | Same ECR image tag (`{repository}:{commit-sha}`), push to ECR, `NEXT_PUBLIC_API_URL` build argument, and runtime application behavior |
+| **Dockerfile** | **No changes** — existing layer order continued to work with BuildKit cache |
+| **Scope** | Frontend deploy step only; backend image build remains unchanged |
+| **Permissions** | Added `actions: write` on the workflow token so the GHA cache backend can store BuildKit layers |
+
+---
+
+### Results
+
+**Baseline (cold build, no GHA cache):**
+
+| Step | Duration |
+|------|----------|
+| Frontend build & push | **~3 min 6 s** |
+
+**After cache warm-up (unchanged frontend layers between deploys):**
+
+| Step | Duration |
+|------|----------|
+| Frontend build & push | **~5 s** |
+
+**Highlights:**
+
+- Approximately **97% reduction** in frontend build/push time on warm cache hits.
+- Docker layers (**`npm ci`**, builder context, **`next build`**, runner copies) are **reused across deployments** instead of rebuilding dependencies on every run.
+- **Faster deployments** with **identical** application behavior and image tagging.
+
+---
+
+### Engineering notes
+
+- The **first deployment** after enabling cache **populated** the BuildKit GHA cache (`mode=max` retains intermediate stage layers).
+- **Subsequent deployments** with matching layers demonstrated the measured improvement (~5 s vs ~3 min 6 s).
+- **Backend** image build (still uncached `docker build`) and **ECS service stability waits** for backend and frontend are now the **primary remaining** deployment time contributors.
+
+---
+
+### Resume bullet candidate
+
+> Enabled Docker BuildKit GitHub Actions cache for frontend ECR builds, reducing warm CD build/push time from ~3 minutes to ~5 seconds (~97%) without changing the Dockerfile or application behavior.
+
+---
+
 ## Future entries (placeholder)
 
 Document subsequent work here (e.g. transaction list pagination, AI insights query consolidation, Redis caching, composite indexes) using the same **Context → Before → Changes → After → Summary** structure.
