@@ -6,6 +6,8 @@ A full-stack personal finance application that helps users track spending, manag
 
 > For milestone history and technical details, see [PROJECT_STATUS.md](./PROJECT_STATUS.md) and [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md).
 
+<!-- Benchmarking Docker BuildKit cache -->
+
 ---
 
 ## Live Demo
