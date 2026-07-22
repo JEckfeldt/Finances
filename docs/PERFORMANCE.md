@@ -355,6 +355,82 @@ The deployment workflow was audited. Findings:
 
 ---
 
+## ECS Deployment Optimization Results
+
+**Status:** Complete  
+**Area:** AWS Application Load Balancer target groups (frontend + backend ECS services)  
+**Date recorded:** July 2026
+
+### Original bottleneck
+
+GitHub Actions CD uses `aws-actions/amazon-ecs-deploy-task-definition` with **`wait-for-service-stability: true`** for each service. The **“Deploy backend to ECS”** and **“Deploy frontend to ECS”** steps were each taking about **3 minutes** — not because registering a new task definition is slow, but because ECS waits for a **Fargate rolling deployment** to finish:
+
+| Factor | Role in wall time |
+|--------|-------------------|
+| **`wait-for-service-stability`** | Blocks the workflow until the primary deployment reaches steady state (desired count, healthy tasks behind the load balancer). |
+| **ALB target group health checks** | A new task is not “done” until the target group marks it **healthy** (`HealthyThresholdCount` consecutive successes on `HealthCheckIntervalSeconds`). |
+| **Fargate rolling behavior** | With **desiredCount = 1** and typical **minimumHealthyPercent = 100%**, ECS starts a replacement task, waits for LB health, then drains the old task. |
+
+Image pull, container start, and **`healthCheckGracePeriodSeconds`** still contribute, but the audit showed **health-check convergence** as a large, tunable slice of the ~3 minute per-service deploy steps.
+
+---
+
+### Configuration changes made
+
+Both **frontend** and **backend** ALB target groups were updated (ECS services unchanged; workflow unchanged):
+
+| Setting | Before | After |
+|---------|--------|-------|
+| **Health check path** | `/health` | `/health` (unchanged) |
+| **Health check interval** | 30 s | **10 s** |
+| **Health check timeout** | 5 s | 5 s (unchanged) |
+| **Healthy threshold** | 5 consecutive successes | **2 consecutive successes** |
+| **Unhealthy threshold** | 2 consecutive failures | 2 (unchanged) |
+
+---
+
+### Before vs after timing
+
+Measured on production CD (**Deploy … to ECS** step duration, approximate):
+
+| Step | Before | After | Δ |
+|------|--------|-------|---|
+| Deploy backend to ECS | **~3 min** | **~2 min** | **~−1 min** |
+| Deploy frontend to ECS | **~3 min** | **~2 min** | **~−1 min** |
+| **Combined ECS stability wait** | **~6 min** | **~4 min** | **~−2 min** |
+
+Other pipeline stages (image build/push, task definition render, post-deploy curl checks) were not changed as part of this optimization.
+
+---
+
+### Why the improvement happened
+
+1. **Faster ALB health convergence** — Checks run every **10 s** instead of **30 s**, so the load balancer can observe successful responses more frequently.
+2. **Fewer successes required** — **2** consecutive passes replace **5**, shortening the minimum time from first good check to **healthy** (roughly on the order of **(threshold − 1) × interval**, plus app startup and grace period).
+3. **Shorter path to steady state** — ECS **`wait-for-service-stability`** completes once the new task is registered and **healthy** in the target group and the deployment reaches steady state; tightening TG settings reduced delay between **task registration** and **service stable** without changing application code or the deploy workflow.
+
+Health checks still hit **`/health`** with a **5 s** timeout and **2** failed checks before **unhealthy**, preserving a reasonable failure-detection floor.
+
+---
+
+### Remaining optimization opportunities
+
+| Opportunity | Rationale |
+|-------------|-----------|
+| **Parallel backend and frontend ECS deploys** | Services are independent; running both stability waits concurrently could save ~**2 min** wall-clock vs sequential deploys (after images are built). |
+| **Reduce ECR image pull time** | Fargate **pullStartedAt → pullStoppedAt** still adds tens of seconds per new task; smaller images and warm nodes help. |
+| **Backend Docker image optimization** | Backend build is still uncached in GHA; slimmer images improve pull and cold-start on the task side. |
+| **Review target group deregistration delay** | Default **deregistration_delay** can lengthen drain tail on old targets; worth profiling if deploy steps still have a long tail after **healthy**. |
+| **ECS desired count / deployment strategy** | **desiredCount**, **minimumHealthyPercent**, and **maximumPercent** trade deploy speed vs availability; document before changing production SLOs. |
+
+---
+
+### Resume bullet candidate
+
+> Profiled ECS Fargate deploy latency (ALB health checks + `wait-for-service-stability`), tuned target group intervals and healthy thresholds for `/health`, and cut per-service ECS deploy wait by ~1 minute (~2 minutes total) without code or pipeline changes.
+
+---
+
 ## Future entries (placeholder)
 
 Document subsequent work here (e.g. transaction list pagination, AI insights query consolidation, Redis caching, composite indexes) using the same **Context → Before → Changes → After → Summary** structure.
