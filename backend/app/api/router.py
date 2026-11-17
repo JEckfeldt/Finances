@@ -1,3 +1,5 @@
+# All HTTP API routes are registered here.
+
 from fastapi import APIRouter
 
 from app.api.routes import ai, auth, budgets, dashboard, transactions

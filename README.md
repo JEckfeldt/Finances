@@ -2,22 +2,20 @@
 
 ![CI](https://github.com/JEckfeldt/Finances/actions/workflows/ci.yml/badge.svg)
 
-A full-stack personal finance application that helps users track spending, manage monthly budgets, and understand their finances at a glance. Users register, log in, and work with their own isolated data — transactions, budgets, charts, and AI-powered insights — through a clean, responsive web interface deployed to production on AWS.
+> **Disclaimer:** The public production site (`app.jakesfinancetracker.com` / `api.jakesfinancetracker.com`) is **no longer running**. Use the screenshots below or [run locally](#running-locally) to try the app. The repo still includes the AWS deployment workflow used when it was live.
 
-> For milestone history and technical details, see [PROJECT_STATUS.md](./PROJECT_STATUS.md) and [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md).
-
-<!-- Benchmarking Docker BuildKit cache -->
+A full-stack personal finance application that helps users track spending, manage monthly budgets, and understand their finances at a glance. Users register, log in, and work with their own isolated data — transactions, budgets, charts, and AI-powered insights — through a clean, responsive web interface. It was deployed to AWS; see [PROJECT_STATUS.md](./PROJECT_STATUS.md) for more detail.
 
 ---
 
-## Live Demo
+## Live Demo (offline)
+
+Production URLs are kept for reference only:
 
 | | URL |
 |---|---|
-| **Production App** | https://app.jakesfinancetracker.com |
-| **API** | https://api.jakesfinancetracker.com |
-| **API Health** | https://api.jakesfinancetracker.com/health |
-| **API Docs** | https://api.jakesfinancetracker.com/docs |
+| **Production App** | https://app.jakesfinancetracker.com *(offline)* |
+| **API** | https://api.jakesfinancetracker.com *(offline)* |
 
 ---
 

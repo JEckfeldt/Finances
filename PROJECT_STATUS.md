@@ -10,13 +10,13 @@ Living document tracking what has been built and what remains.
 
 ## Current Application Status
 
-Production application is **live and verified**:
+Production was deployed on AWS; the public URLs are **no longer active** (see README disclaimer). Historical URLs:
 
 | | URL |
 |---|---|
-| Frontend | https://app.jakesfinancetracker.com |
-| Backend API | https://api.jakesfinancetracker.com |
-| Health check | https://api.jakesfinancetracker.com/health |
+| Frontend | https://app.jakesfinancetracker.com *(offline)* |
+| Backend API | https://api.jakesfinancetracker.com *(offline)* |
+| Health check | https://api.jakesfinancetracker.com/health *(offline)* |
 
 **Deployment:** AWS ECS Fargate (frontend + backend), Amazon RDS PostgreSQL, Application Load Balancers with ACM HTTPS, Route 53 DNS, Docker images in ECR, automated GitHub Actions CI/CD.
 

@@ -1,3 +1,5 @@
+// Browser API client. Uses NEXT_PUBLIC_API_URL and sends cookies on each request.
+
 import type {
   AIActionResponse,
   AIInsightsResponse,
